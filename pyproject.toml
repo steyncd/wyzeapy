@@ -1,19 +1,42 @@
-[tool.poetry]
+## ---------------------------------------------------------------------------
+# The project used to be managed by Poetry.  That configuration has been
+# removed in favour of the standard PEP 621 `[project]` table below so that it
+# can be installed with `uv`/`pip` without extra tooling.  The stanza is kept
+# commented-out here for historical reference; you can safely delete it.
+## ---------------------------------------------------------------------------
+
+[project]
 name = "wyzeapy"
 version = "0.5.28"
 description = "A library for interacting with Wyze devices"
-authors = ["Katie Mulliken <katie@mulliken.net>"]
-license = "GPL-3.0-only"
+license = { text = "GPL-3.0-only" }
+authors = [
+    { name = "Katie Mulliken", email = "katie@mulliken.net" }
+]
 
-[tool.poetry.dependencies]
-python = ">=3.11.0"
-aiohttp = "^3.11.12"
-aiodns = "^3.2.0"
-pycryptodome = "^3.21.0"
+# Core runtime requirements
+# Poetry's "^" operator is converted to an explicit upper-bound so that it
+# round-trips cleanly with standard PEP 440 specifiers.
+dependencies = [
+    "aiohttp>=3.11.12,<4.0",
+    "aiodns>=3.2.0,<4.0",
+    "pycryptodome>=3.21.0,<4.0"
+]
 
-[tool.poetry.group.dev.dependencies]
-pdoc = "^15.0.3"
+[project.optional-dependencies]
+# Former "dev" group from Poetry
+# Feel free to add other extras as you need them.
+
+dev = [
+    "pdoc>=15.0.3,<16.0"
+]
 
 [build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling>=1.18.0"]
+build-backend = "hatchling.build"
+
+# Ensure Hatchling picks up the sources that live under the `src` directory
+[tool.hatch.build.targets.wheel]
+packages = [
+    "src/wyzeapy"
+]

@@ -52,8 +52,10 @@ Developed by Katie Mulliken ([SecKatie](https://github.com/SecKatie))
 Docs are generated using [pdoc](https://pdoc.dev/). To generate docs for this project, run:
 
 ```bash
-# Activate the poetry environment (that includes the dev dependencies)
-eval "$(poetry env activate)"
+# Create and activate a virtual environment, then install dev deps with uv
+python -m venv .venv
+source .venv/bin/activate
+uv pip install -e .[dev]
 
 # Generate docs
 pdoc --output-dir=docs src/wyzeapy
