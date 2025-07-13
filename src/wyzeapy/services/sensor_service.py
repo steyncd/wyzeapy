@@ -18,7 +18,10 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class Sensor(Device):
-    detected: bool = False
+    def __init__(self, dictionary):
+        super().__init__(dictionary)
+        # Instance-specific state (was previously a class attribute)
+        self.detected: bool = False
 
 
 class SensorService(BaseService):

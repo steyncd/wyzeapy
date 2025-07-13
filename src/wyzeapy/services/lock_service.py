@@ -10,13 +10,17 @@ from ..utils import wyze_decrypt_cbc
 
 
 class Lock(Device):
-    unlocked = False
-    locking = False
-    unlocking = False
-    door_open = False
-    trash_mode = False
-    ble_id = None
-    ble_token = None
+    def __init__(self, dictionary):
+        super().__init__(dictionary)
+
+        # Device-specific state variables (were previously class attributes)
+        self.unlocked: bool = False
+        self.locking: bool = False
+        self.unlocking: bool = False
+        self.door_open: bool = False
+        self.trash_mode: bool = False
+        self.ble_id = None
+        self.ble_token = None
 
 
 class LockService(BaseService):

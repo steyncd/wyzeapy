@@ -16,9 +16,6 @@ _LOGGER = logging.getLogger(__name__)
 
 class Bulb(Device):
     """Bulb class for interacting with Wyze bulbs."""
-    _brightness: int = 0
-    _color_temp: int = 1800
-    _color: Optional[str]
 
     def __init__(self, dictionary: Dict[Any, Any]):
         """Initialize the Bulb class.
@@ -32,6 +29,11 @@ class Bulb(Device):
         self.cloud_fallback: bool = False
         """Variable that stores the cloud fallback state of the bulb"""
         super().__init__(dictionary)
+
+        # Initialize per-instance state variables (were previously class attributes)
+        self._brightness: int = 0
+        self._color_temp: int = 1800
+        self._color: Optional[str] = None
 
         self.ip = self.device_params["ip"]
         """IP address of the bulb"""
