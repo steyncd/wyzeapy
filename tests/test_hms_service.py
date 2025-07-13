@@ -1,4 +1,4 @@
-import unittest
+THIS SHOULD BE A LINTER ERRORimport unittest
 from unittest.mock import AsyncMock, MagicMock
 from wyzeapy.services.hms_service import HMSService, HMSMode
 from wyzeapy.wyze_auth_lib import WyzeAuthLib
