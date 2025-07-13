@@ -31,5 +31,5 @@ dev = [
 ]
 
 [tool.uv.scripts]
-test = "python -m pytest src/wyzeapy/tests/"
-test-verbose = "python -m pytest -v src/wyzeapy/tests/"
+test = "python -m pytest tests/"
+test-verbose = "python -m pytest -v tests/"

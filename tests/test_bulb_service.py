@@ -1,16 +1,18 @@
-import unittest
+import pytest
 from unittest.mock import AsyncMock, MagicMock
 from wyzeapy.services.bulb_service import BulbService, Bulb
 from wyzeapy.types import DeviceTypes, PropertyIDs
 
 
-class TestBulbService(unittest.IsolatedAsyncioTestCase):
-    async def asyncSetUp(self):
+class TestBulbService:
+    @pytest.fixture(autouse=True)
+    async def setup_method(self):
         mock_auth_lib = MagicMock()
         self.bulb_service = BulbService(auth_lib=mock_auth_lib)
         self.bulb_service._get_property_list = AsyncMock()
         self.bulb_service.get_updated_params = AsyncMock()
 
+    @pytest.mark.asyncio
     async def test_update_bulb_basic_properties(self):
         mock_bulb = Bulb({
             "device_type": "Light",
@@ -32,11 +34,12 @@ class TestBulbService(unittest.IsolatedAsyncioTestCase):
 
         updated_bulb = await self.bulb_service.update(mock_bulb)
 
-        self.assertEqual(updated_bulb.brightness, 75)
-        self.assertEqual(updated_bulb.color_temp, 4000)
-        self.assertTrue(updated_bulb.on)
-        self.assertTrue(updated_bulb.available)
+        assert updated_bulb.brightness == 75
+        assert updated_bulb.color_temp == 4000
+        assert updated_bulb.on is True
+        assert updated_bulb.available is True
 
+    @pytest.mark.asyncio
     async def test_update_bulb_lightstrip_properties(self):
         mock_bulb = Bulb({
             "device_type": "Light",
@@ -61,13 +64,14 @@ class TestBulbService(unittest.IsolatedAsyncioTestCase):
 
         updated_bulb = await self.bulb_service.update(mock_bulb)
 
-        self.assertEqual(updated_bulb.color, "FF0000")
-        self.assertEqual(updated_bulb.color_mode, "1")
-        self.assertEqual(updated_bulb.effects, "rainbow")
-        self.assertTrue(updated_bulb.music_mode)
-        self.assertTrue(updated_bulb.on)
-        self.assertTrue(updated_bulb.available)
+        assert updated_bulb.color == "FF0000"
+        assert updated_bulb.color_mode == "1"
+        assert updated_bulb.effects == "rainbow"
+        assert updated_bulb.music_mode is True
+        assert updated_bulb.on is True
+        assert updated_bulb.available is True
 
+    @pytest.mark.asyncio
     async def test_update_bulb_sun_match(self):
         mock_bulb = Bulb({
             "device_type": "Light",
@@ -88,10 +92,11 @@ class TestBulbService(unittest.IsolatedAsyncioTestCase):
 
         updated_bulb = await self.bulb_service.update(mock_bulb)
 
-        self.assertTrue(updated_bulb.sun_match)
-        self.assertTrue(updated_bulb.on)
-        self.assertTrue(updated_bulb.available)
+        assert updated_bulb.sun_match is True
+        assert updated_bulb.on is True
+        assert updated_bulb.available is True
 
+    @pytest.mark.asyncio
     async def test_update_bulb_invalid_color_temp(self):
         mock_bulb = Bulb({
             "device_type": "Light",
@@ -112,9 +117,10 @@ class TestBulbService(unittest.IsolatedAsyncioTestCase):
         updated_bulb = await self.bulb_service.update(mock_bulb)
 
         # Should default to 2700K when invalid
-        self.assertEqual(updated_bulb.color_temp, 2700)
-        self.assertTrue(updated_bulb.on)
+        assert updated_bulb.color_temp == 2700
+        assert updated_bulb.on is True
 
+    @pytest.mark.asyncio
     async def test_get_bulbs(self):
         mock_device = MagicMock()
         mock_device.type = DeviceTypes.LIGHT
@@ -130,6 +136,6 @@ class TestBulbService(unittest.IsolatedAsyncioTestCase):
 
         bulbs = await self.bulb_service.get_bulbs()
 
-        self.assertEqual(len(bulbs), 1)
-        self.assertIsInstance(bulbs[0], Bulb)
+        assert len(bulbs) == 1
+        assert isinstance(bulbs[0], Bulb)
         self.bulb_service.get_object_list.assert_awaited_once()

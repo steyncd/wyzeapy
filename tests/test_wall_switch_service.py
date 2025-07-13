@@ -1,4 +1,4 @@
-import unittest
+import pytest
 from unittest.mock import AsyncMock, MagicMock
 from wyzeapy.services.wall_switch_service import (
     WallSwitchService, WallSwitch, SinglePressType, WallSwitchProps
@@ -7,8 +7,9 @@ from wyzeapy.types import DeviceTypes
 from wyzeapy.wyze_auth_lib import WyzeAuthLib
 
 
-class TestWallSwitchService(unittest.IsolatedAsyncioTestCase):
-    async def asyncSetUp(self):
+class TestWallSwitchService:
+    @pytest.fixture(autouse=True)
+    async def setup_method(self):
         self.mock_auth_lib = MagicMock(spec=WyzeAuthLib)
         self.wall_switch_service = WallSwitchService(auth_lib=self.mock_auth_lib)
         self.wall_switch_service._wall_switch_get_iot_prop = AsyncMock()
@@ -25,6 +26,7 @@ class TestWallSwitchService(unittest.IsolatedAsyncioTestCase):
             "raw_dict": {}
         })
 
+    @pytest.mark.asyncio
     async def test_update_wall_switch(self):
         self.wall_switch_service._wall_switch_get_iot_prop.return_value = {
             'data': {
@@ -39,13 +41,14 @@ class TestWallSwitchService(unittest.IsolatedAsyncioTestCase):
 
         updated_switch = await self.wall_switch_service.update(self.test_switch)
 
-        self.assertTrue(updated_switch.available)
-        self.assertTrue(updated_switch.switch_power)
-        self.assertFalse(updated_switch.switch_iot)
-        self.assertEqual(updated_switch.single_press_type, SinglePressType.CLASSIC)
+        assert updated_switch.available is True
+        assert updated_switch.switch_power is True
+        assert updated_switch.switch_iot is False
+        assert updated_switch.single_press_type == SinglePressType.CLASSIC
         # Test the property that depends on single_press_type
-        self.assertTrue(updated_switch.on)  # Should be True because switch_power is True and type is CLASSIC
+        assert updated_switch.on is True  # Should be True because switch_power is True and type is CLASSIC
 
+    @pytest.mark.asyncio
     async def test_update_wall_switch_iot_mode(self):
         self.wall_switch_service._wall_switch_get_iot_prop.return_value = {
             'data': {
@@ -60,13 +63,14 @@ class TestWallSwitchService(unittest.IsolatedAsyncioTestCase):
 
         updated_switch = await self.wall_switch_service.update(self.test_switch)
 
-        self.assertTrue(updated_switch.available)
-        self.assertFalse(updated_switch.switch_power)
-        self.assertTrue(updated_switch.switch_iot)
-        self.assertEqual(updated_switch.single_press_type, SinglePressType.IOT)
+        assert updated_switch.available is True
+        assert updated_switch.switch_power is False
+        assert updated_switch.switch_iot is True
+        assert updated_switch.single_press_type == SinglePressType.IOT
         # Test the property that depends on single_press_type
-        self.assertTrue(updated_switch.on)  # Should be True because switch_iot is True and type is IOT
+        assert updated_switch.on is True  # Should be True because switch_iot is True and type is IOT
 
+    @pytest.mark.asyncio
     async def test_get_switches(self):
         mock_switch = MagicMock()
         mock_switch.type = DeviceTypes.COMMON
@@ -89,10 +93,11 @@ class TestWallSwitchService(unittest.IsolatedAsyncioTestCase):
 
         switches = await self.wall_switch_service.get_switches()
         
-        self.assertEqual(len(switches), 1)
-        self.assertIsInstance(switches[0], WallSwitch)
+        assert len(switches) == 1
+        assert isinstance(switches[0], WallSwitch)
         self.wall_switch_service.get_object_list.assert_awaited_once()
 
+    @pytest.mark.asyncio
     async def test_turn_on_classic_mode(self):
         self.test_switch.single_press_type = SinglePressType.CLASSIC
         await self.wall_switch_service.turn_on(self.test_switch)
@@ -102,6 +107,7 @@ class TestWallSwitchService(unittest.IsolatedAsyncioTestCase):
             True
         )
 
+    @pytest.mark.asyncio
     async def test_turn_off_classic_mode(self):
         self.test_switch.single_press_type = SinglePressType.CLASSIC
         await self.wall_switch_service.turn_off(self.test_switch)
@@ -111,6 +117,7 @@ class TestWallSwitchService(unittest.IsolatedAsyncioTestCase):
             False
         )
 
+    @pytest.mark.asyncio
     async def test_turn_on_iot_mode(self):
         self.test_switch.single_press_type = SinglePressType.IOT
         await self.wall_switch_service.turn_on(self.test_switch)
@@ -120,6 +127,7 @@ class TestWallSwitchService(unittest.IsolatedAsyncioTestCase):
             True
         )
 
+    @pytest.mark.asyncio
     async def test_turn_off_iot_mode(self):
         self.test_switch.single_press_type = SinglePressType.IOT
         await self.wall_switch_service.turn_off(self.test_switch)
@@ -129,6 +137,7 @@ class TestWallSwitchService(unittest.IsolatedAsyncioTestCase):
             False
         )
 
+    @pytest.mark.asyncio
     async def test_set_single_press_type(self):
         await self.wall_switch_service.set_single_press_type(
             self.test_switch,
@@ -140,6 +149,7 @@ class TestWallSwitchService(unittest.IsolatedAsyncioTestCase):
             SinglePressType.IOT.value
         )
 
+    @pytest.mark.asyncio
     async def test_update_with_invalid_property(self):
         self.wall_switch_service._wall_switch_get_iot_prop.return_value = {
             'data': {
@@ -151,11 +161,7 @@ class TestWallSwitchService(unittest.IsolatedAsyncioTestCase):
         }
 
         updated_switch = await self.wall_switch_service.update(self.test_switch)
-        self.assertTrue(updated_switch.switch_power)
+        assert updated_switch.switch_power is True
         # Other properties should maintain their default values
-        self.assertEqual(updated_switch.single_press_type, SinglePressType.CLASSIC)
-        self.assertFalse(updated_switch.switch_iot)
-
-
-if __name__ == '__main__':
-    unittest.main() 
+        assert updated_switch.single_press_type == SinglePressType.CLASSIC
+        assert updated_switch.switch_iot is False 
