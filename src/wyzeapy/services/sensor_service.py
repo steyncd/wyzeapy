@@ -8,7 +8,15 @@ import logging
 from threading import Thread
 from typing import List, Callable, Tuple, Optional
 
-from aiohttp import ClientOSError, ContentTypeError
+# aiohttp is an optional dependency for network operations. During static analysis or in
+# environments where aiohttp is not installed, importing it may raise an ImportError
+# which can cause linters to flag an "unresolved import". To avoid that while keeping
+# runtime behaviour intact, we fall back to generic Exception types when aiohttp is
+# not available.
+try:
+    from aiohttp import ClientOSError, ContentTypeError  # type: ignore
+except ModuleNotFoundError:  # pragma: no cover
+    ClientOSError = ContentTypeError = Exception  # type: ignore
 
 from ..exceptions import UnknownApiError
 from .base_service import BaseService

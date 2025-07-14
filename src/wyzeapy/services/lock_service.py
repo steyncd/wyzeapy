@@ -3,6 +3,8 @@
 #  of the attached license. You should have received a copy of
 #  the license with this file. If not, please write to:
 #  katie@mulliken.net to receive a copy
+from typing import Any, Dict, Optional
+
 from .base_service import BaseService
 from ..const import FORD_APP_SECRET
 from ..types import Device, DeviceTypes
@@ -10,7 +12,7 @@ from ..utils import wyze_decrypt_cbc
 
 
 class Lock(Device):
-    def __init__(self, dictionary):
+    def __init__(self, dictionary: Dict[Any, Any]):
         super().__init__(dictionary)
 
         # Device-specific state variables (were previously class attributes)
@@ -19,8 +21,8 @@ class Lock(Device):
         self.unlocking: bool = False
         self.door_open: bool = False
         self.trash_mode: bool = False
-        self.ble_id = None
-        self.ble_token = None
+        self.ble_id: Optional[str] = None
+        self.ble_token: Optional[str] = None
 
 
 class LockService(BaseService):
