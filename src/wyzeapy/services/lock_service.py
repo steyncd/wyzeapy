@@ -28,20 +28,31 @@ class Lock(Device):
 class LockService(BaseService):
     async def update(self, lock: Lock):
         device_info = await self._get_lock_info(lock)
-        lock.raw_dict = device_info["device"]
+
+        # Ensure the expected structure is present before assignment.
+        device_dict = device_info.get("device", {}) if device_info else {}
+        lock.raw_dict = device_dict  # type: ignore[assignment]  # Updating with latest device info
+
         if lock.product_model == "YD_BT1":
             ble_token_info = await self._get_lock_ble_token(lock)
-            lock.raw_dict["token"] = ble_token_info["token"]
-            lock.ble_id = ble_token_info["token"]["id"]
-            lock.ble_token = wyze_decrypt_cbc(FORD_APP_SECRET[:16], ble_token_info["token"]["token"])
+            token_dict = ble_token_info.get("token") if ble_token_info else None
+            if token_dict:
+                lock.raw_dict["token"] = token_dict
+                lock.ble_id = token_dict.get("id")
+                # Decrypt only if 'token' key is present
+                encrypted_token = token_dict.get("token")
+                if encrypted_token is not None:
+                    lock.ble_token = wyze_decrypt_cbc(
+                        FORD_APP_SECRET[:16], encrypted_token
+                    )
 
         lock.available = lock.raw_dict.get("onoff_line") == 1
         lock.door_open = lock.raw_dict.get("door_open_status") == 1
         lock.trash_mode = lock.raw_dict.get("trash_mode") == 1
 
         # store the nested dict for easier reference below
-        locker_status = lock.raw_dict.get("locker_status")
-        # Check if the door is locked
+        locker_status = lock.raw_dict.get("locker_status", {})
+        # Check if the door is locked (default to locked if key missing)
         lock.unlocked = locker_status.get("hardlock") == 2
         
         # Reset unlocking and locking if needed
