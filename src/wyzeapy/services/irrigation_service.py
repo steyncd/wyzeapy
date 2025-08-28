@@ -183,7 +183,7 @@ class IrrigationService(BaseService):
             'skip_rain,skip_saturation'
         return await self._irrigation_device_info(url, device, keys)
 
-    async def get_zone_by_device(self, device: Device) -> List[Dict[Any, Any]]:
-        """Get zones for a device."""
+    async def get_zone_by_device(self, device: Device) -> Dict[Any, Any]:
+        """Get zones for a device (returns server JSON containing zones list)."""
         url = "https://wyze-lockwood-service.wyzecam.com/plugin/irrigation/zone"
         return await self._get_zone_by_device(url, device)

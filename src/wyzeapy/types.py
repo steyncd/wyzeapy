@@ -9,7 +9,7 @@ and API response code enums.
 """
 
 from enum import Enum
-from typing import Union, List, Dict, Any
+from typing import Callable, Optional, Union, List, Dict, Any
 
 
 class Group:
@@ -58,7 +58,8 @@ class Device:
     nickname: str
     device_params: Dict[str, Any]
     raw_dict: Dict[str, Any]
-    callback_function = None
+    callback_function: Optional[Callable[[Any], None]] = None
+    usage_history: Optional[List[Dict[str, Any]]] = None
 
     def __init__(self, dictionary: Dict[Any, Any]):
         self.available = False

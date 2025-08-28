@@ -1,7 +1,7 @@
 from asyncio import sleep
 from dataclasses import dataclass, field
 from heapq import heappush, heappop
-from typing import Any
+from typing import Any, List
 from math import ceil
 from ..types import Device
 import logging
@@ -58,7 +58,8 @@ class DeviceUpdater(object):
                 # Get the updated info for the device from Wyze's API
                 self.device = await self.service.update(self.device)
                 # Callback to provide the updated info to the subscriber
-                self.device.callback_function(self.device)
+                if self.device.callback_function is not None:
+                    self.device.callback_function(self.device)
             except Exception:
                 _LOGGER.exception("Unknown error happened during updating device info")
             finally:
@@ -88,8 +89,8 @@ class UpdateManager:
     limits and fair distribution of update calls across devices.
     """
 
-    updaters = []
-    removed_updaters = []
+    updaters: List[DeviceUpdater] = []
+    removed_updaters: List[DeviceUpdater] = []
     mutex = threading.Lock()
 
     def check_if_removed(self, updater: DeviceUpdater):

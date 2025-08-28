@@ -36,6 +36,8 @@ class Camera(Device):
         self.siren: bool = False
         self.floodlight: bool = False
         self.garage: bool = False
+        self.motion: bool = False
+        self.notify: bool = False
 
 
 class CameraService(BaseService):
@@ -77,10 +79,10 @@ class CameraService(BaseService):
                     camera.available = propCategory["properties"]["iot-state"]
 
         else:  # All other cam types (old api?)
-            state_response: List[
+            property_list: List[
                 Tuple[PropertyIDs, Any]
             ] = await self._get_property_list(camera)
-            for property, value in state_response:
+            for property, value in property_list:
                 if property is PropertyIDs.AVAILABLE:
                     camera.available = value == "1"
                 if property is PropertyIDs.ON:

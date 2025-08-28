@@ -25,7 +25,7 @@ class HMSService(BaseService):
     def __init__(self, auth_lib: WyzeAuthLib):
         super().__init__(auth_lib)
 
-        self._hms_id = None
+        self._hms_id: Optional[str] = None
 
     @classmethod
     async def create(cls, auth_lib: WyzeAuthLib):
@@ -46,13 +46,17 @@ class HMSService(BaseService):
         return self._hms_id is not None
 
     async def set_mode(self, mode: HMSMode):
+        hms_id = self.hms_id
+        if hms_id is None:
+            raise ValueError("HMS ID is not set. Initialize HMSService via create() first.")
+
         if mode == HMSMode.DISARMED:
-            await self._disable_reme_alarm(self.hms_id)
-            await self._monitoring_profile_active(self.hms_id, 0, 0)
+            await self._disable_reme_alarm(hms_id)
+            await self._monitoring_profile_active(hms_id, 0, 0)
         elif mode == HMSMode.AWAY:
-            await self._monitoring_profile_active(self.hms_id, 0, 1)
+            await self._monitoring_profile_active(hms_id, 0, 1)
         elif mode == HMSMode.HOME:
-            await self._monitoring_profile_active(self.hms_id, 1, 0)
+            await self._monitoring_profile_active(hms_id, 1, 0)
 
     async def _get_hms_id(self) -> Optional[str]:
         """

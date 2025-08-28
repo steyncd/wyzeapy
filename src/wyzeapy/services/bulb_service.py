@@ -17,15 +17,20 @@ _LOGGER = logging.getLogger(__name__)
 class Bulb(Device):
     """Bulb class for interacting with Wyze bulbs."""
 
-    _brightness: int = 0
-    _color_temp: int = 1800
-    _color: Optional[str]
-
     def __init__(self, dictionary: Dict[Any, Any]):
         """Initialize the Bulb class.
 
         :param dictionary: Dictionary containing the device parameters.
         """
+
+        self._brightness: int = 0
+        self._color_temp: int = 1800
+        self._color: Optional[str] = None
+        self.color_mode: Optional[str] = None
+        self.sun_match: bool = False
+        self.effects: Optional[str] = None
+        self.music_mode: bool = False
+        
         self.enr: str = ""
         """Encryption string"""
         self.on: bool = False

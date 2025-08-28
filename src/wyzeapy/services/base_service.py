@@ -90,15 +90,15 @@ class BaseService:
     """
 
     _devices: Optional[List[Device]] = None
-    _last_updated_time: time = (
+    _last_updated_time: float = (
         0  # preload a value of 0 so that comparison will succeed on the first run
     )
     _min_update_time = 1200  # lets let the device_params update every 20 minutes for now. This could probably reduced signicficantly.
     _update_lock: asyncio.Lock = asyncio.Lock()  # fmt: skip
     _update_manager: UpdateManager = UpdateManager()
-    _update_loop = None
-    _updater: DeviceUpdater = None
-    _updater_dict = {}
+    _update_loop: Optional[asyncio.AbstractEventLoop] = None
+    _updater: Optional[DeviceUpdater] = None
+    _updater_dict: Dict[Device, DeviceUpdater] = {}
 
     def __init__(self, auth_lib: WyzeAuthLib):
         """Initialize the base service with authentication.
@@ -107,6 +107,13 @@ class BaseService:
         * `auth_lib` (WyzeAuthLib): The authentication library for API access
         """
         self._auth_lib = auth_lib
+
+    def _get_access_token(self) -> str:
+        """Return a non-None access token or raise a helpful error for typing safety."""
+        token = self._auth_lib.token
+        if token is None:
+            raise ValueError("Authentication token is not available. Ensure login/refresh completed.")
+        return token.access_token
 
     @staticmethod
     async def start_update_manager():
@@ -180,7 +187,7 @@ class BaseService:
             "sc": SC,
             "ts": int(time.time()),
             "sv": SV,
-            "access_token": self._auth_lib.token.access_token,
+            "access_token": self._get_access_token(),
             "phone_id": PHONE_ID,
             "app_name": APP_NAME,
         }
@@ -197,14 +204,14 @@ class BaseService:
         await self._auth_lib.refresh_if_should()
 
         payload = olive_create_user_info_payload()
-        signature = olive_create_signature(payload, self._auth_lib.token.access_token)
+        signature = olive_create_signature(payload, self._get_access_token())
         headers = {
             "Accept-Encoding": "gzip",
             "User-Agent": "myapp",
             "appid": OLIVE_APP_ID,
             "appinfo": APP_INFO,
             "phoneid": PHONE_ID,
-            "access_token": self._auth_lib.token.access_token,
+            "access_token": self._get_access_token(),
             "signature2": signature,
         }
 
@@ -243,7 +250,7 @@ class BaseService:
             "sc": "9f275790cab94a72bd206c8876429f3c",
             "ts": int(time.time()),
             "sv": "9d74946e652647e9b6c9d59326aef104",
-            "access_token": self._auth_lib.token.access_token,
+            "access_token": self._get_access_token(),
             "phone_id": PHONE_ID,
             "app_name": APP_NAME,
         }
@@ -261,7 +268,7 @@ class BaseService:
         return BaseService._devices
 
     async def get_updated_params(
-        self, device_mac: str = None
+        self, device_mac: Optional[str] = None
     ) -> Dict[str, Optional[Any]]:
         """Get updated params for a device.
 
@@ -271,8 +278,8 @@ class BaseService:
         if time.time() - BaseService._last_updated_time >= BaseService._min_update_time:
             await self.get_object_list()
             BaseService._last_updated_time = time.time()
-        ret_params = {}
-        for dev in BaseService._devices:
+        ret_params: Dict[str, Optional[Any]] = {}
+        for dev in (BaseService._devices or []):
             if dev.mac == device_mac:
                 ret_params = dev.device_params
         return ret_params
@@ -293,7 +300,7 @@ class BaseService:
             "sc": "9f275790cab94a72bd206c8876429f3c",
             "ts": int(time.time()),
             "sv": "9d74946e652647e9b6c9d59326aef104",
-            "access_token": self._auth_lib.token.access_token,
+            "access_token": self._get_access_token(),
             "phone_id": PHONE_ID,
             "app_name": APP_NAME,
             "device_model": device.product_model,
@@ -333,7 +340,7 @@ class BaseService:
             "sc": "9f275790cab94a72bd206c8876429f3c",
             "ts": int(time.time()),
             "sv": "9d74946e652647e9b6c9d59326aef104",
-            "access_token": self._auth_lib.token.access_token,
+            "access_token": self._get_access_token(),
             "phone_id": PHONE_ID,
             "app_name": APP_NAME,
             "property_list": plist,
@@ -362,7 +369,7 @@ class BaseService:
             "sc": "9f275790cab94a72bd206c8876429f3c",
             "ts": int(time.time()),
             "sv": "9d74946e652647e9b6c9d59326aef104",
-            "access_token": self._auth_lib.token.access_token,
+            "access_token": self._get_access_token(),
             "phone_id": PHONE_ID,
             "app_name": APP_NAME,
             "action_list": [
@@ -408,7 +415,7 @@ class BaseService:
             "app_ver": APP_VER,
             "ts": 1623612037763,
             "device_mac": "",
-            "access_token": self._auth_lib.token.access_token,
+            "access_token": self._get_access_token(),
         }
 
         response_json = await self._auth_lib.post(
@@ -434,7 +441,7 @@ class BaseService:
             "sc": "9f275790cab94a72bd206c8876429f3c",
             "ts": int(time.time()),
             "sv": "9d74946e652647e9b6c9d59326aef104",
-            "access_token": self._auth_lib.token.access_token,
+            "access_token": self._get_access_token(),
             "phone_id": PHONE_ID,
             "app_name": APP_NAME,
             "provider_key": device.product_model,
@@ -474,7 +481,7 @@ class BaseService:
         }
 
         headers = {
-            "authorization": self._auth_lib.token.access_token,
+            "authorization": self._get_access_token(),
         }
 
         response_json = await self._auth_lib.post(
@@ -512,9 +519,9 @@ class BaseService:
             "nonce": str(int(time.time() * 1000)),
         }
 
-        signature = olive_create_signature(payload, self._auth_lib.token.access_token)
+        signature = olive_create_signature(payload, self._get_access_token())
         headers = {
-            "access_token": self._auth_lib.token.access_token,
+            "access_token": self._get_access_token(),
             "timestamp": str(int(time.time() * 1000)),
             "appid": OLIVE_APP_ID,
             "source": SOURCE,
@@ -552,7 +559,7 @@ class BaseService:
         }
 
         headers = {
-            "authorization": self._auth_lib.token.access_token,
+            "authorization": self._get_access_token(),
         }
 
         response_json = await self._auth_lib.post(
@@ -581,7 +588,7 @@ class BaseService:
             "sc": "9f275790cab94a72bd206c8876429f3c",
             "ts": int(time.time()),
             "sv": "9d74946e652647e9b6c9d59326aef104",
-            "access_token": self._auth_lib.token.access_token,
+            "access_token": self._get_access_token(),
             "phone_id": PHONE_ID,
             "app_name": APP_NAME,
             "pvalue": pvalue,
@@ -607,16 +614,16 @@ class BaseService:
 
         url = "https://hms.api.wyze.com/api/v1/monitoring/v1/profile/active"
         query = olive_create_hms_patch_payload(hms_id)
-        signature = olive_create_signature(query, self._auth_lib.token.access_token)
+        signature = olive_create_signature(query, self._get_access_token())
         headers = {
             "Accept-Encoding": "gzip",
             "User-Agent": "myapp",
             "appid": OLIVE_APP_ID,
             "appinfo": APP_INFO,
             "phoneid": PHONE_ID,
-            "access_token": self._auth_lib.token.access_token,
+            "access_token": self._get_access_token(),
             "signature2": signature,
-            "Authorization": self._auth_lib.token.access_token,
+            "Authorization": self._get_access_token(),
         }
         payload = [{"state": "home", "active": home}, {"state": "away", "active": away}]
         response_json = await self._auth_lib.patch(
@@ -635,14 +642,14 @@ class BaseService:
 
         url = "https://wyze-membership-service.wyzecam.com/platform/v2/membership/get_plan_binding_list_by_user"
         payload = olive_create_hms_payload()
-        signature = olive_create_signature(payload, self._auth_lib.token.access_token)
+        signature = olive_create_signature(payload, self._get_access_token())
         headers = {
             "Accept-Encoding": "gzip",
             "User-Agent": "myapp",
             "appid": OLIVE_APP_ID,
             "appinfo": APP_INFO,
             "phoneid": PHONE_ID,
-            "access_token": self._auth_lib.token.access_token,
+            "access_token": self._get_access_token(),
             "signature2": signature,
         }
 
@@ -660,7 +667,7 @@ class BaseService:
 
         url = "https://hms.api.wyze.com/api/v1/reme-alarm"
         payload = {"hms_id": hms_id, "remediation_id": "emergency"}
-        headers = {"Authorization": self._auth_lib.token.access_token}
+        headers = {"Authorization": self._get_access_token()}
 
         response_json = await self._auth_lib.delete(url, headers=headers, json=payload)
 
@@ -678,15 +685,15 @@ class BaseService:
 
         url = "https://hms.api.wyze.com/api/v1/monitoring/v1/profile/state-status"
         query = olive_create_hms_get_payload(hms_id)
-        signature = olive_create_signature(query, self._auth_lib.token.access_token)
+        signature = olive_create_signature(query, self._get_access_token())
         headers = {
             "User-Agent": "myapp",
             "appid": OLIVE_APP_ID,
             "appinfo": APP_INFO,
             "phoneid": PHONE_ID,
-            "access_token": self._auth_lib.token.access_token,
+            "access_token": self._get_access_token(),
             "signature2": signature,
-            "Authorization": self._auth_lib.token.access_token,
+            "Authorization": self._get_access_token(),
             "Content-Type": "application/json",
         }
 
@@ -707,7 +714,7 @@ class BaseService:
             "action": action,  # "remoteLock" or "remoteUnlock"
         }
         payload = ford_create_payload(
-            self._auth_lib.token.access_token, payload, url_path, "post"
+            self._get_access_token(), payload, url_path, "post"
         )
 
         url = "https://yd-saas-toc.wyzecam.com/openapi/lock/v1/control"
@@ -726,7 +733,7 @@ class BaseService:
         payload = {"uuid": device_uuid, "with_keypad": "1"}
 
         payload = ford_create_payload(
-            self._auth_lib.token.access_token, payload, url_path, "get"
+            self._get_access_token(), payload, url_path, "get"
         )
 
         url = "https://yd-saas-toc.wyzecam.com/openapi/lock/v1/info"
@@ -745,7 +752,7 @@ class BaseService:
         payload = {"uuid": device.mac}
 
         payload = ford_create_payload(
-            self._auth_lib.token.access_token, payload, url_path, "get"
+            self._get_access_token(), payload, url_path, "get"
         )
 
         url = f"https://yd-saas-toc.wyzecam.com{url_path}"
@@ -768,7 +775,7 @@ class BaseService:
             "ts": int(time.time()),
             "device_model": device.product_model,
             "sv": "c86fa16fc99d4d6580f82ef3b942e586",
-            "access_token": self._auth_lib.token.access_token,
+            "access_token": self._get_access_token(),
             "phone_id": PHONE_ID,
             "app_name": APP_NAME,
         }
@@ -787,14 +794,14 @@ class BaseService:
         await self._auth_lib.refresh_if_should()
 
         payload = olive_create_get_payload(device.mac, keys)
-        signature = olive_create_signature(payload, self._auth_lib.token.access_token)
+        signature = olive_create_signature(payload, self._get_access_token())
         headers = {
             "Accept-Encoding": "gzip",
             "User-Agent": "myapp",
             "appid": OLIVE_APP_ID,
             "appinfo": APP_INFO,
             "phoneid": PHONE_ID,
-            "access_token": self._auth_lib.token.access_token,
+            "access_token": self._get_access_token(),
             "signature2": signature,
         }
 
@@ -814,7 +821,7 @@ class BaseService:
         )
         signature = olive_create_signature(
             json.dumps(payload, separators=(",", ":")),
-            self._auth_lib.token.access_token,
+            self._get_access_token(),
         )
         headers = {
             "Accept-Encoding": "gzip",
@@ -823,7 +830,7 @@ class BaseService:
             "appid": OLIVE_APP_ID,
             "appinfo": APP_INFO,
             "phoneid": PHONE_ID,
-            "access_token": self._auth_lib.token.access_token,
+            "access_token": self._get_access_token(),
             "signature2": signature,
         }
 
@@ -872,8 +879,11 @@ class BaseService:
 
     async def _get_plug_history(
         self, device: Device, start_time, end_time
-    ) -> Dict[Any, Any]:
-        """Wraps the https://api.wyzecam.com/app/v2/plug/usage_record_list endpoint"""
+    ) -> List[Dict[Any, Any]]:
+        """Wraps the https://api.wyzecam.com/app/v2/plug/usage_record_list endpoint
+
+        :return: List of usage record entries
+        """
 
         await self._auth_lib.refresh_if_should()
 
@@ -889,7 +899,7 @@ class BaseService:
             "phone_system_type": PHONE_SYSTEM_TYPE,
             "app_ver": APP_VER,
             "ts": int(time.time()),
-            "access_token": self._auth_lib.token.access_token,
+            "access_token": self._get_access_token(),
         }
 
         response_json = await self._auth_lib.post(
@@ -904,14 +914,44 @@ class BaseService:
         await self._auth_lib.refresh_if_should()
 
         payload = olive_create_get_payload_irrigation(device.mac)
-        signature = olive_create_signature(payload, self._auth_lib.token.access_token)
+        signature = olive_create_signature(payload, self._get_access_token())
         headers = {
             'Accept-Encoding': 'gzip',
             'User-Agent': 'myapp',
             'appid': OLIVE_APP_ID,
             'appinfo': APP_INFO,
             'phoneid': PHONE_ID,
-            'access_token': self._auth_lib.token.access_token,
+            'access_token': self._get_access_token(),
+            'signature2': signature
+        }
+
+        response_json = await self._auth_lib.get(url, headers=headers, params=payload)
+
+        check_for_errors_iot(self, response_json)
+
+        return response_json
+
+    async def _irrigation_device_info(self, url: str, device: Device, keys: str) -> Dict[Any, Any]:
+        """Wraps the irrigation device_info endpoint for retrieving device settings.
+
+        :param url: Endpoint URL
+        :param device: Target irrigation device
+        :param keys: Comma-separated list of keys to request
+        :return: Response JSON after validation
+        """
+        await self._auth_lib.refresh_if_should()
+
+        payload = olive_create_get_payload_irrigation(device.mac)
+        # Some endpoints may require keys; include for completeness
+        payload["keys"] = keys
+        signature = olive_create_signature(payload, self._get_access_token())
+        headers = {
+            'Accept-Encoding': 'gzip',
+            'User-Agent': 'myapp',
+            'appid': OLIVE_APP_ID,
+            'appinfo': APP_INFO,
+            'phoneid': PHONE_ID,
+            'access_token': self._get_access_token(),
             'signature2': signature
         }
 
@@ -927,7 +967,7 @@ class BaseService:
 
         payload = olive_create_post_payload_irrigation_stop(device.mac, action)
         signature = olive_create_signature(json.dumps(payload, separators=(',', ':')),
-                                           self._auth_lib.token.access_token)
+                                           self._get_access_token())
         headers = {
             'Accept-Encoding': 'gzip',
             'Content-Type': 'application/json',
@@ -935,7 +975,7 @@ class BaseService:
             'appid': OLIVE_APP_ID,
             'appinfo': APP_INFO,
             'phoneid': PHONE_ID,
-            'access_token': self._auth_lib.token.access_token,
+            'access_token': self._get_access_token(),
             'signature2': signature
         }
 
@@ -951,7 +991,7 @@ class BaseService:
 
         payload = olive_create_post_payload_irrigation_quickrun(device.mac, zone_number, duration)
         signature = olive_create_signature(json.dumps(payload, separators=(',', ':')),
-                                           self._auth_lib.token.access_token)
+                                           self._get_access_token())
         headers = {
             'Accept-Encoding': 'gzip',
             'Content-Type': 'application/json',
@@ -959,7 +999,7 @@ class BaseService:
             'appid': OLIVE_APP_ID,
             'appinfo': APP_INFO,
             'phoneid': PHONE_ID,
-            'access_token': self._auth_lib.token.access_token,
+            'access_token': self._get_access_token(),
             'signature2': signature
         }
 

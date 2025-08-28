@@ -39,27 +39,24 @@ class Wyzeapy:
 
     Most interactions with Wyze devices should go through this class.
     """
-
-    # _client: Client
-    _auth_lib: WyzeAuthLib
-
     def __init__(self):
-        self._bulb_service = None
-        self._switch_service = None
-        self._camera_service = None
-        self._thermostat_service = None
-        self._hms_service = None
-        self._lock_service = None
-        self._sensor_service = None
-        self._irrigation_service = None
-        self._wall_switch_service = None
-        self._switch_usage_service = None
-        self._email = None
-        self._password = None
-        self._key_id = None
-        self._api_key = None
+        self._bulb_service: Optional[BulbService] = None
+        self._switch_service: Optional[SwitchService] = None
+        self._camera_service: Optional[CameraService] = None
+        self._thermostat_service: Optional[ThermostatService] = None
+        self._hms_service: Optional[HMSService] = None
+        self._lock_service: Optional[LockService] = None
+        self._sensor_service: Optional[SensorService] = None
+        self._irrigation_service: Optional[IrrigationService] = None
+        self._wall_switch_service: Optional[WallSwitchService] = None
+        self._switch_usage_service: Optional[SwitchUsageService] = None
+        self._email: Optional[str] = None
+        self._password: Optional[str] = None
+        self._key_id: Optional[str] = None
+        self._api_key: Optional[str] = None
         self._service: Optional[BaseService] = None
         self._token_callbacks: List[Callable] = []
+        self._auth_lib: Optional[WyzeAuthLib] = None
 
     @classmethod
     async def create(cls):
@@ -105,6 +102,9 @@ class Wyzeapy:
             self._auth_lib = await WyzeAuthLib.create(
                 email, password, key_id, api_key, token, self.execute_token_callbacks
             )
+            if self._auth_lib is None:
+                raise ValueError("Failed to initialize WyzeAuthLib")
+
             if token:
                 # User token supplied, refresh on startup
                 await self._auth_lib.refresh()
@@ -133,8 +133,13 @@ class Wyzeapy:
 
         _LOGGER.debug(f"Verification Code: {verification_code}")
 
+        if self._auth_lib is None:
+            raise ValueError("WyzeAuthLib is not initialized")
+
         await self._auth_lib.get_token_with_2fa(verification_code)
         self._service = BaseService(self._auth_lib)
+        if self._auth_lib.token is None:
+            raise ValueError("Failed to get token with 2FA")
         return self._auth_lib.token
 
     async def execute_token_callbacks(self, token: Token):
@@ -203,6 +208,9 @@ class Wyzeapy:
         ```
         """
 
+        if self._service is None:
+            raise ValueError("BaseService is not initialized")
+
         devices = await self._service.get_object_list()
         device_ids = set()
         for device in devices:
@@ -222,6 +230,9 @@ class Wyzeapy:
         * `bool`: True if notifications are enabled, False otherwise
         """
 
+        if self._service is None:
+            raise ValueError("BaseService is not initialized")
+
         response_json = await self._service.get_user_profile()
         return response_json["data"]["notification"]
 
@@ -238,6 +249,9 @@ class Wyzeapy:
         ```
         """
 
+        if self._service is None:
+            raise ValueError("BaseService is not initialized")
+
         await self._service.set_push_info(True)
 
     async def disable_notifications(self):
@@ -252,6 +266,9 @@ class Wyzeapy:
         await wyze.disable_notifications()
         ```
         """
+
+        if self._service is None:
+            raise ValueError("BaseService is not initialized")
 
         await self._service.set_push_info(False)
 
@@ -288,6 +305,9 @@ class Wyzeapy:
         self = cls()
         await self.login(email, password, key_id, api_key)
 
+        if self._auth_lib is None:
+            raise ValueError("WyzeAuthLib is not initialized")
+
         return not self._auth_lib.should_refresh
 
     @property
@@ -307,6 +327,9 @@ class Wyzeapy:
         bulbs = await bulb_service.get_bulbs()
         ```
         """
+
+        if self._auth_lib is None:
+            raise ValueError("WyzeAuthLib is not initialized")
 
         if self._bulb_service is None:
             self._bulb_service = BulbService(self._auth_lib)
@@ -330,6 +353,9 @@ class Wyzeapy:
         ```
         """
 
+        if self._auth_lib is None:
+            raise ValueError("WyzeAuthLib is not initialized")
+
         if self._switch_service is None:
             self._switch_service = SwitchService(self._auth_lib)
         return self._switch_service
@@ -351,6 +377,9 @@ class Wyzeapy:
         cameras = await camera_service.get_cameras()
         ```
         """
+
+        if self._auth_lib is None:
+            raise ValueError("WyzeAuthLib is not initialized")
 
         if self._camera_service is None:
             self._camera_service = CameraService(self._auth_lib)
@@ -374,6 +403,9 @@ class Wyzeapy:
         ```
         """
 
+        if self._auth_lib is None:
+            raise ValueError("WyzeAuthLib is not initialized")
+
         if self._thermostat_service is None:
             self._thermostat_service = ThermostatService(self._auth_lib)
         return self._thermostat_service
@@ -395,6 +427,9 @@ class Wyzeapy:
         status = await hms_service.get_hms_status()
         ```
         """
+
+        if self._auth_lib is None:
+            raise ValueError("WyzeAuthLib is not initialized")
 
         if self._hms_service is None:
             self._hms_service = await HMSService.create(self._auth_lib)
@@ -418,6 +453,9 @@ class Wyzeapy:
         ```
         """
 
+        if self._auth_lib is None:
+            raise ValueError("WyzeAuthLib is not initialized")
+
         if self._lock_service is None:
             self._lock_service = LockService(self._auth_lib)
         return self._lock_service
@@ -440,6 +478,9 @@ class Wyzeapy:
         ```
         """
 
+        if self._auth_lib is None:
+            raise ValueError("WyzeAuthLib is not initialized")
+
         if self._sensor_service is None:
             self._sensor_service = SensorService(self._auth_lib)
         return self._sensor_service
@@ -447,6 +488,9 @@ class Wyzeapy:
     @property
     async def irrigation_service(self) -> IrrigationService:
         """Returns an instance of the irrigation service"""
+
+        if self._auth_lib is None:
+            raise ValueError("WyzeAuthLib is not initialized")
 
         if self._irrigation_service is None:
             self._irrigation_service = IrrigationService(self._auth_lib)
@@ -470,6 +514,9 @@ class Wyzeapy:
         ```
         """
 
+        if self._auth_lib is None:
+            raise ValueError("WyzeAuthLib is not initialized")
+
         if self._wall_switch_service is None:
             self._wall_switch_service = WallSwitchService(self._auth_lib)
         return self._wall_switch_service
@@ -491,6 +538,10 @@ class Wyzeapy:
         usage = await usage_service.get_usage_records(switch_mac)
         ```
         """
+
+        if self._auth_lib is None:
+            raise ValueError("WyzeAuthLib is not initialized")
+
         if self._switch_usage_service is None:
             self._switch_usage_service = SwitchUsageService(self._auth_lib)
         return self._switch_usage_service

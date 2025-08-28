@@ -6,7 +6,7 @@
 import asyncio
 import logging
 import time
-from typing import Dict, Any, Optional
+from typing import Awaitable, Callable, Dict, Any, Optional
 
 from aiohttp import TCPConnector, ClientSession, ContentTypeError
 
@@ -53,14 +53,11 @@ class Token:
     # Token is good for 24 hours; schedule refresh after 23 hours
     REFRESH_INTERVAL = 82800
 
-    def __init__(self, access_token, refresh_token, refresh_time: float = None):
+    def __init__(self, access_token, refresh_token, refresh_time: Optional[float] = None):
         self._access_token: str = access_token
         self._refresh_token: str = refresh_token
         self.expired = False
-        if refresh_time:
-            self._refresh_time: float = refresh_time
-        else:
-            self._refresh_time: float = time.time() + Token.REFRESH_INTERVAL
+        self._refresh_time: float = refresh_time or time.time() + Token.REFRESH_INTERVAL
 
     @property
     def access_token(self):
@@ -117,16 +114,16 @@ class WyzeAuthLib:
             token: Existing Token instance for reuse (optional).
             token_callback: Callback to invoke on token updates.
         """
-        self._username = username
-        self._password = password
-        self._key_id = key_id
-        self._api_key = api_key
-        self.token = token
-        self.session_id = ""
-        self.verification_id = ""
-        self.two_factor_type = None
-        self.refresh_lock = asyncio.Lock()
-        self.token_callback = token_callback
+        self._username: Optional[str] = username
+        self._password: Optional[str] = password
+        self._key_id: Optional[str] = key_id
+        self._api_key: Optional[str] = api_key
+        self.token: Optional[Token] = token
+        self.session_id: Optional[str] = None
+        self.verification_id: Optional[str] = None
+        self.two_factor_type: Optional[str] = None  # type: ignore
+        self.refresh_lock: asyncio.Lock = asyncio.Lock()
+        self.token_callback: Optional[Callable[[Token], Awaitable[None]]] = token_callback
 
     @classmethod
     async def create(
@@ -220,7 +217,7 @@ class WyzeAuthLib:
 
         if response_json.get("mfa_options") is not None:
             # Store the TOTP verification setting in the token and raise exception
-            if "TotpVerificationCode" in response_json.get("mfa_options"):
+            if "TotpVerificationCode" in response_json.get("mfa_options", []):
                 self.two_factor_type = "TOTP"
                 # Store the verification_id from the response, it's needed for the 2fa payload.
                 self.verification_id = response_json["mfa_details"]["totp_apps"][0][
@@ -228,7 +225,7 @@ class WyzeAuthLib:
                 ]
                 raise TwoFactorAuthenticationEnabled
                 # 2fa using SMS, store sms as 2fa method in token, send the code then raise exception
-            if "PrimaryPhone" in response_json.get("mfa_options"):
+            if "PrimaryPhone" in response_json.get("mfa_options", []):
                 self.two_factor_type = "SMS"
                 params = {
                     "mfaPhoneType": "Primary",
@@ -247,7 +244,8 @@ class WyzeAuthLib:
         self.token = Token(
             response_json["access_token"], response_json["refresh_token"]
         )
-        await self.token_callback(self.token)
+        if self.token_callback:
+            await self.token_callback(self.token)
         return self.token
 
     async def get_token_with_2fa(self, verification_code) -> Token:
@@ -290,19 +288,20 @@ class WyzeAuthLib:
         self.token = Token(
             response_json["access_token"], response_json["refresh_token"]
         )
-        await self.token_callback(self.token)
+        if self.token_callback:
+            await self.token_callback(self.token)
         return self.token
 
     @property
     def should_refresh(self) -> bool:
         """Check whether the current token has reached its refresh time."""
-        return time.time() >= self.token.refresh_time
+        return self.token is not None and time.time() >= self.token.refresh_time
 
     async def refresh_if_should(self):
         """Refresh the token proactively if expired or past refresh_time."""
-        if self.should_refresh or self.token.expired:
+        if self.token is not None and (self.should_refresh or self.token.expired):
             async with self.refresh_lock:
-                if self.should_refresh or self.token.expired:
+                if self.token is not None and (self.should_refresh or self.token.expired):
                     _LOGGER.debug("Should refresh. Refreshing...")
                     await self.refresh()
 
@@ -313,6 +312,9 @@ class WyzeAuthLib:
             AccessTokenError: If refresh fails due to invalid refresh token.
             UnknownApiError: For other errors during refresh.
         """
+        if self.token is None:
+            raise ValueError("Cannot refresh without an existing token.")
+
         payload = {
             "phone_id": PHONE_ID,
             "app_name": APP_NAME,
@@ -340,7 +342,8 @@ class WyzeAuthLib:
 
         self.token.access_token = response_json["data"]["access_token"]
         self.token.refresh_token = response_json["data"]["refresh_token"]
-        await self.token_callback(self.token)
+        if self.token_callback is not None:
+            await self.token_callback(self.token)
         self.token.expired = False
 
     def sanitize(self, data):
