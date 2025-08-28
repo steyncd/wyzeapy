@@ -44,7 +44,7 @@ class CameraService(BaseService):
     _updater_thread: Optional[Thread] = None
     _subscribers: List[Tuple[Camera, Callable[[Camera], None]]] = []
 
-    async def update(self, camera: Camera):
+    async def update(self, camera: Camera) -> Camera:
         # Get updated device_params
         async with BaseService._update_lock:
             camera.device_params = await self.get_updated_params(camera.mac)
@@ -104,7 +104,7 @@ class CameraService(BaseService):
 
     async def register_for_updates(
         self, camera: Camera, callback: Callable[[Camera], None]
-    ):
+    ) -> None:
         loop = asyncio.get_event_loop()
         if not self._updater_thread:
             self._updater_thread = Thread(
@@ -118,14 +118,14 @@ class CameraService(BaseService):
 
         self._subscribers.append((camera, callback))
 
-    async def deregister_for_updates(self, camera: Camera):
+    async def deregister_for_updates(self, camera: Camera) -> None:
         self._subscribers = [
             (cam, callback)
             for cam, callback in self._subscribers
             if cam.mac != camera.mac
         ]
 
-    def update_worker(self, loop):
+    def update_worker(self, loop: asyncio.AbstractEventLoop) -> None:
         while True:
             if len(self._subscribers) < 1:
                 time.sleep(0.1)
@@ -156,7 +156,7 @@ class CameraService(BaseService):
 
         return [Camera(camera.raw_dict) for camera in cameras]
 
-    async def turn_on(self, camera: Camera):
+    async def turn_on(self, camera: Camera) -> None:
         if camera.product_model in DEVICEMGMT_API_MODELS:
             await self._run_action_devicemgmt(
                 camera, "power", "wakeup"
@@ -164,7 +164,7 @@ class CameraService(BaseService):
         else:
             await self._run_action(camera, "power_on")
 
-    async def turn_off(self, camera: Camera):
+    async def turn_off(self, camera: Camera) -> None:
         if camera.product_model in DEVICEMGMT_API_MODELS:
             await self._run_action_devicemgmt(
                 camera, "power", "sleep"
@@ -172,7 +172,7 @@ class CameraService(BaseService):
         else:
             await self._run_action(camera, "power_off")
 
-    async def siren_on(self, camera: Camera):
+    async def siren_on(self, camera: Camera) -> None:
         if camera.product_model in DEVICEMGMT_API_MODELS:
             await self._run_action_devicemgmt(
                 camera, "siren", "siren-on"
@@ -180,7 +180,7 @@ class CameraService(BaseService):
         else:
             await self._run_action(camera, "siren_on")
 
-    async def siren_off(self, camera: Camera):
+    async def siren_off(self, camera: Camera) -> None:
         if camera.product_model in DEVICEMGMT_API_MODELS:
             await self._run_action_devicemgmt(
                 camera, "siren", "siren-off"
@@ -189,7 +189,7 @@ class CameraService(BaseService):
             await self._run_action(camera, "siren_off")
 
     # Also controls lamp socket and BCP spotlight
-    async def floodlight_on(self, camera: Camera):
+    async def floodlight_on(self, camera: Camera) -> None:
         if camera.product_model == "AN_RSCW":
             await self._run_action_devicemgmt(
                 camera, "spotlight", "1"
@@ -202,7 +202,7 @@ class CameraService(BaseService):
             await self._set_property(camera, PropertyIDs.ACCESSORY.value, "1")
 
     # Also controls lamp socket and BCP spotlight
-    async def floodlight_off(self, camera: Camera):
+    async def floodlight_off(self, camera: Camera) -> None:
         if camera.product_model == "AN_RSCW":
             await self._run_action_devicemgmt(
                 camera, "spotlight", "0"
@@ -215,13 +215,13 @@ class CameraService(BaseService):
             await self._set_property(camera, PropertyIDs.ACCESSORY.value, "2")
 
     # Garage door trigger uses run action on all models
-    async def garage_door_open(self, camera: Camera):
+    async def garage_door_open(self, camera: Camera) -> None:
         await self._run_action(camera, "garage_door_trigger")
 
-    async def garage_door_close(self, camera: Camera):
+    async def garage_door_close(self, camera: Camera) -> None:
         await self._run_action(camera, "garage_door_trigger")
 
-    async def turn_on_notifications(self, camera: Camera):
+    async def turn_on_notifications(self, camera: Camera) -> None:
         if camera.product_model in DEVICEMGMT_API_MODELS:
             await self._set_toggle(
                 camera, DeviceMgmtToggleProps.NOTIFICATION_TOGGLE.value, "1"
@@ -229,7 +229,7 @@ class CameraService(BaseService):
         else:
             await self._set_property(camera, PropertyIDs.NOTIFICATION.value, "1")
 
-    async def turn_off_notifications(self, camera: Camera):
+    async def turn_off_notifications(self, camera: Camera) -> None:
         if camera.product_model in DEVICEMGMT_API_MODELS:
             await self._set_toggle(
                 camera, DeviceMgmtToggleProps.NOTIFICATION_TOGGLE.value, "0"
@@ -239,7 +239,7 @@ class CameraService(BaseService):
 
     # Both properties need to be set on newer cams, older cameras seem to only react
     # to the first property but it doesnt hurt to set both
-    async def turn_on_motion_detection(self, camera: Camera):
+    async def turn_on_motion_detection(self, camera: Camera) -> None:
         if camera.product_model in DEVICEMGMT_API_MODELS:
             await self._set_toggle(
                 camera, DeviceMgmtToggleProps.EVENT_RECORDING_TOGGLE.value, "1"
@@ -254,7 +254,7 @@ class CameraService(BaseService):
                 camera, PropertyIDs.MOTION_DETECTION_TOGGLE.value, "1"
             )
 
-    async def turn_off_motion_detection(self, camera: Camera):
+    async def turn_off_motion_detection(self, camera: Camera) -> None:
         if camera.product_model in DEVICEMGMT_API_MODELS:
             await self._set_toggle(
                 camera, DeviceMgmtToggleProps.EVENT_RECORDING_TOGGLE.value, "0"

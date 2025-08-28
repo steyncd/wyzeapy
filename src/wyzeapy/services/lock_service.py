@@ -21,7 +21,7 @@ class Lock(Device):
 
 
 class LockService(BaseService):
-    async def update(self, lock: Lock):
+    async def update(self, lock: Lock) -> Lock:
         device_info = await self._get_lock_info(lock)
         device = device_info.get("device") if isinstance(device_info, dict) else None
         if not isinstance(device, dict):
@@ -56,7 +56,7 @@ class LockService(BaseService):
 
         return lock
 
-    async def get_locks(self):
+    async def get_locks(self) -> list[Lock]:
         if self._devices is None:
             self._devices = await self.get_object_list()
 
@@ -64,8 +64,8 @@ class LockService(BaseService):
 
         return [Lock(device.raw_dict) for device in locks]
 
-    async def lock(self, lock: Lock):
+    async def lock(self, lock: Lock) -> None:
         await self._lock_control(lock, "remoteLock")
 
-    async def unlock(self, lock: Lock):
+    async def unlock(self, lock: Lock) -> None:
         await self._lock_control(lock, "remoteUnlock")

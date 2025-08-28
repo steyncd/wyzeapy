@@ -36,7 +36,7 @@ class DeviceUpdater(object):
     update_in: int  # Countdown ticks until this device should be updated
     updates_per_interval: int = field(compare=False)
 
-    def __init__(self, service, device: Device, update_interval: int):
+    def __init__(self, service: Any, device: Device, update_interval: int) -> None:
         """
         This function initializes a DeviceUpdater object
         :param service: The WyzeApy service connected to a device
@@ -48,7 +48,7 @@ class DeviceUpdater(object):
         self.update_in = 0  # Always initialize at 0 so that we get the first update ASAP. The items will shift based on priority after this.
         self.updates_per_interval = ceil(INTERVAL / update_interval)
 
-    async def update(self, mutex: threading.Lock):
+    async def update(self, mutex: threading.Lock) -> None:
         # We only want to update if the update_in counter is zero
         if self.update_in <= 0:
             _LOGGER.debug("Updating device: " + self.device.nickname)
@@ -71,12 +71,12 @@ class DeviceUpdater(object):
             # Don't update and instead just reduce the counter by 1
             self.tick_tock()
 
-    def tick_tock(self):
+    def tick_tock(self) -> None:
         # Every time we update a device we want to reduce the update_in counter so that it will get closer to updating
         if self.update_in > 0:
             self.update_in -= 1
 
-    def delay(self):
+    def delay(self) -> None:
         # This should be called to reduce the number of updates per interval so that new devices can be added into the queue fairly
         if self.updates_per_interval > 1:
             self.updates_per_interval -= 1
@@ -93,14 +93,14 @@ class UpdateManager:
     removed_updaters: List[DeviceUpdater] = []
     mutex = threading.Lock()
 
-    def check_if_removed(self, updater: DeviceUpdater):
+    def check_if_removed(self, updater: DeviceUpdater) -> bool:
         for item in self.removed_updaters:
             if updater is item:
                 return True
         return False
 
     # This function should be called once every second
-    async def update_next(self):
+    async def update_next(self) -> None:
         # If there are no updaters in the queue we don't need to do anything
         if len(self.updaters) == 0:
             _LOGGER.debug("No devices to update in queue")
@@ -123,7 +123,7 @@ class UpdateManager:
             heappush(self.updaters, updater)
             await sleep(1)
 
-    def filled_slots(self):
+    def filled_slots(self) -> int:
         # This just returns the number of available slots
         current_slots = 0
         for a_updater in self.updaters:
@@ -131,17 +131,17 @@ class UpdateManager:
 
         return current_slots
 
-    def decrease_updates_per_interval(self):
+    def decrease_updates_per_interval(self) -> None:
         # This will add a delay for all devices so we can squeeze more in there
         for a_updater in self.updaters:
             a_updater.delay()
 
-    def tick_tock(self):
+    def tick_tock(self) -> None:
         # This will reduce the update_in counter for all devices
         for a_updater in self.updaters:
             a_updater.tick_tock()
 
-    def add_updater(self, updater: DeviceUpdater):
+    def add_updater(self, updater: DeviceUpdater) -> None:
         if len(self.updaters) >= MAX_SLOTS:
             _LOGGER.exception("No more devices can be updated within the rate limit")
             raise Exception("No more devices can be updated within the rate limit")
@@ -159,6 +159,6 @@ class UpdateManager:
         # Once it fits we will add the new updater to the queue
         heappush(self.updaters, updater)
 
-    def del_updater(self, updater: DeviceUpdater):
+    def del_updater(self, updater: DeviceUpdater) -> None:
         self.removed_updaters.append(updater)
         _LOGGER.debug("Removing device from update queue")

@@ -228,7 +228,7 @@ class HMSStatus(Enum):
 
 
 class DeviceMgmtToggleType:
-    def __init__(self, pageId, toggleId):
+    def __init__(self, pageId: str, toggleId: str) -> None:
         self.pageId = pageId
         self.toggleId = toggleId
 

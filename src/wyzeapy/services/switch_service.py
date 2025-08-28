@@ -17,7 +17,7 @@ class Switch(Device):
 
 
 class SwitchService(BaseService):
-    async def update(self, switch: Switch):
+    async def update(self, switch: Switch) -> Switch:
         # Get updated device_params
         async with BaseService._update_lock:
             switch.device_params = await self.get_updated_params(switch.mac)
@@ -44,17 +44,17 @@ class SwitchService(BaseService):
         ]
         return [Switch(switch.raw_dict) for switch in devices]
 
-    async def turn_on(self, switch: Switch):
+    async def turn_on(self, switch: Switch) -> None:
         await self._set_property(switch, PropertyIDs.ON.value, "1")
 
-    async def turn_off(self, switch: Switch):
+    async def turn_off(self, switch: Switch) -> None:
         await self._set_property(switch, PropertyIDs.ON.value, "0")
 
 
 class SwitchUsageService(SwitchService):
     """Class to retrieve the last 25 hours of usage data."""
 
-    async def update(self, device: Device):
+    async def update(self, device: Switch) -> Switch:
         start_time = int(
             datetime.timestamp((datetime.now() - timedelta(hours=25))) * 1000
         )

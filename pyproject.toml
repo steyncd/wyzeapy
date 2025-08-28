@@ -30,3 +30,36 @@ dev = [
     "coverage>=7.9.2",
     "mypy>=1.17.1",
 ]
+
+[tool.mypy]
+# Ensure mypy resolves first-party imports from the local source tree
+mypy_path = ["src"]
+python_version = "3.11"
+namespace_packages = true
+explicit_package_bases = true
+warn_unused_ignores = true
+show_error_codes = true
+check_untyped_defs = true
+no_implicit_optional = true
+warn_return_any = true
+warn_redundant_casts = true
+warn_unreachable = true
+warn_unused_configs = true
+files = ["src/wyzeapy"]
+# Exclude internal tests from type checking
+exclude = "(^tests/|^src/wyzeapy/tests/)"
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+disallow_any_generics = true
+no_implicit_reexport = true
+strict_equality = true
+disallow_untyped_calls = true
+
+
+[tool.hatch.build.targets.wheel.force-include]
+"src/wyzeapy/py.typed" = "wyzeapy/py.typed"
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "src/wyzeapy/py.typed",
+]

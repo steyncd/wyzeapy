@@ -18,17 +18,17 @@ class HMSMode(Enum):
 
 
 class HMSService(BaseService):
-    async def update(self, hms_id: str):
+    async def update(self, hms_id: str) -> HMSMode:
         hms_mode = await self._monitoring_profile_state_status(hms_id)
         return HMSMode(hms_mode["message"])
 
-    def __init__(self, auth_lib: WyzeAuthLib):
+    def __init__(self, auth_lib: WyzeAuthLib) -> None:
         super().__init__(auth_lib)
 
         self._hms_id: Optional[str] = None
 
     @classmethod
-    async def create(cls, auth_lib: WyzeAuthLib):
+    async def create(cls, auth_lib: WyzeAuthLib) -> "HMSService":
         hms_service = cls(auth_lib)
         hms_service._hms_id = await hms_service._get_hms_id()
 
@@ -39,13 +39,13 @@ class HMSService(BaseService):
         return self._hms_id
 
     @property
-    async def has_hms(self):
+    async def has_hms(self) -> bool:
         if self._hms_id is None:
             self._hms_id = self.hms_id
 
         return self._hms_id is not None
 
-    async def set_mode(self, mode: HMSMode):
+    async def set_mode(self, mode: HMSMode) -> None:
         hms_id = self.hms_id
         if hms_id is None:
             raise ValueError("HMS ID is not set. Initialize HMSService via create() first.")

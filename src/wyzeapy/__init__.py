@@ -5,7 +5,7 @@
 #  katie@mulliken.net to receive a copy
 import logging
 from inspect import iscoroutinefunction
-from typing import List, Optional, Set, Callable
+from typing import List, Optional, Set, Callable, Any
 
 from .exceptions import TwoFactorAuthenticationEnabled
 from .services.base_service import BaseService
@@ -39,7 +39,7 @@ class Wyzeapy:
 
     Most interactions with Wyze devices should go through this class.
     """
-    def __init__(self):
+    def __init__(self) -> None:
         self._bulb_service: Optional[BulbService] = None
         self._switch_service: Optional[SwitchService] = None
         self._camera_service: Optional[CameraService] = None
@@ -55,11 +55,11 @@ class Wyzeapy:
         self._key_id: Optional[str] = None
         self._api_key: Optional[str] = None
         self._service: Optional[BaseService] = None
-        self._token_callbacks: List[Callable] = []
+        self._token_callbacks: List[Callable[[Token], Any]] = []
         self._auth_lib: Optional[WyzeAuthLib] = None
 
     @classmethod
-    async def create(cls):
+    async def create(cls) -> "Wyzeapy":
         """
         Creates and initializes the Wyzeapy class asynchronously.
 
@@ -73,8 +73,8 @@ class Wyzeapy:
         return self
 
     async def login(
-        self, email, password, key_id, api_key, token: Optional[Token] = None
-    ):
+        self, email: str, password: str, key_id: str, api_key: str, token: Optional[Token] = None
+    ) -> None:
         """
         Authenticates with the Wyze API and retrieves the user's access token.
 
@@ -116,7 +116,7 @@ class Wyzeapy:
         except TwoFactorAuthenticationEnabled as error:
             raise error
 
-    async def login_with_2fa(self, verification_code) -> Token:
+    async def login_with_2fa(self, verification_code: str) -> Token:
         """
         Completes the login process for accounts with two-factor authentication enabled.
 
@@ -142,7 +142,7 @@ class Wyzeapy:
             raise ValueError("Failed to get token with 2FA")
         return self._auth_lib.token
 
-    async def execute_token_callbacks(self, token: Token):
+    async def execute_token_callbacks(self, token: Token) -> None:
         """
         Sends the token to all registered callback functions.
 
@@ -158,7 +158,7 @@ class Wyzeapy:
             else:
                 callback(token)
 
-    def register_for_token_callback(self, callback_function):
+    def register_for_token_callback(self, callback_function: Callable[[Token], Any]) -> None:
         """
         Registers a callback function to be called whenever the user's token is modified.
 
@@ -179,7 +179,7 @@ class Wyzeapy:
         """
         self._token_callbacks.append(callback_function)
 
-    def unregister_for_token_callback(self, callback_function):
+    def unregister_for_token_callback(self, callback_function: Callable[[Token], Any]) -> None:
         """
         Removes a previously registered token callback function.
 
@@ -233,10 +233,11 @@ class Wyzeapy:
         if self._service is None:
             raise ValueError("BaseService is not initialized")
 
-        response_json = await self._service.get_user_profile()
-        return response_json["data"]["notification"]
+        from typing import Any, Dict, cast
+        response_json = cast(Dict[str, Any], await self._service.get_user_profile())
+        return cast(bool, response_json["data"]["notification"]) 
 
-    async def enable_notifications(self):
+    async def enable_notifications(self) -> None:
         """Enables push notifications for the Wyze account.
 
         This method updates the user's profile to turn on push notifications
@@ -254,7 +255,7 @@ class Wyzeapy:
 
         await self._service.set_push_info(True)
 
-    async def disable_notifications(self):
+    async def disable_notifications(self) -> None:
         """Disables push notifications for the Wyze account.
 
         This method updates the user's profile to turn off push notifications

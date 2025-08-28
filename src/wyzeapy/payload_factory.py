@@ -159,7 +159,7 @@ def olive_create_hms_patch_payload(hms_id: str) -> Dict[str, Any]:
     return {"hms_id": hms_id}
 
 
-def devicemgmt_create_capabilities_payload(type: str, value: str):
+def devicemgmt_create_capabilities_payload(type: str, value: str) -> Dict[str, Any]:
     """
     Create a capabilities payload for device management API actions.
 
@@ -200,7 +200,7 @@ def devicemgmt_create_capabilities_payload(type: str, value: str):
             )
 
 
-def devicemgmt_get_iot_props_list(model: str):
+def devicemgmt_get_iot_props_list(model: str) -> list[Dict[str, Any]]:
     """
     Get the list of IoT property definitions for a given device model.
 

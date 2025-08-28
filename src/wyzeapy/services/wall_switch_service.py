@@ -27,13 +27,13 @@ class WallSwitch(Device):
         self.single_press_type: SinglePressType = SinglePressType.CLASSIC
 
     @property
-    def on(self):
+    def on(self) -> bool:
         if self.single_press_type == SinglePressType.IOT:
             return self.switch_iot
         return self.switch_power
 
     @on.setter
-    def on(self, state: bool):
+    def on(self, state: bool) -> None:
         if self.single_press_type == SinglePressType.IOT:
             self.switch_iot = state
         self.switch_power = state
@@ -75,35 +75,35 @@ class WallSwitchService(BaseService):
 
         return [WallSwitch(switch.raw_dict) for switch in switches]
 
-    async def turn_on(self, switch: WallSwitch):
+    async def turn_on(self, switch: WallSwitch) -> None:
         if switch.single_press_type == SinglePressType.IOT:
             await self.iot_on(switch)
         else:
             await self.power_on(switch)
 
-    async def turn_off(self, switch: WallSwitch):
+    async def turn_off(self, switch: WallSwitch) -> None:
         if switch.single_press_type == SinglePressType.IOT:
             await self.iot_off(switch)
         else:
             await self.power_off(switch)
 
-    async def power_on(self, switch: WallSwitch):
+    async def power_on(self, switch: WallSwitch) -> None:
         await self._wall_switch_set_iot_prop(switch, WallSwitchProps.SWITCH_POWER, True)
 
-    async def power_off(self, switch: WallSwitch):
+    async def power_off(self, switch: WallSwitch) -> None:
         await self._wall_switch_set_iot_prop(
             switch, WallSwitchProps.SWITCH_POWER, False
         )
 
-    async def iot_on(self, switch: WallSwitch):
+    async def iot_on(self, switch: WallSwitch) -> None:
         await self._wall_switch_set_iot_prop(switch, WallSwitchProps.SWITCH_IOT, True)
 
-    async def iot_off(self, switch: WallSwitch):
+    async def iot_off(self, switch: WallSwitch) -> None:
         await self._wall_switch_set_iot_prop(switch, WallSwitchProps.SWITCH_IOT, False)
 
     async def set_single_press_type(
         self, switch: WallSwitch, single_press_type: SinglePressType
-    ):
+    ) -> None:
         await self._wall_switch_set_iot_prop(
             switch, WallSwitchProps.SINGLE_PRESS_TYPE, single_press_type.value
         )

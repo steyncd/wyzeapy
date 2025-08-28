@@ -6,7 +6,7 @@
 import base64
 import binascii
 import hashlib
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, Optional, Sequence
 
 from Crypto.Cipher import AES
 
@@ -20,7 +20,7 @@ Utility functions for encryption, decryption, error handling, and common Wyze AP
 PADDING = bytes.fromhex("05")
 
 
-def pad(plain_text):
+def pad(plain_text: str) -> bytes:
     """
     func to pad cleartext to be multiples of 8-byte blocks.
     If you want to encrypt a text message that is not multiples of 8-byte
@@ -35,7 +35,7 @@ def pad(plain_text):
     return raw
 
 
-def wyze_encrypt(key, text):
+def wyze_encrypt(key: str, text: str) -> str:
     """
     Reimplementation of the Wyze app's encryption mechanism.
 
@@ -43,30 +43,30 @@ def wyze_encrypt(key, text):
     https://paste.sr.ht/~joshmulliken/e9f67e05c4a774004b226d2ac1f070b6d341cb39
     """
     raw = pad(text)
-    key = key.encode("ascii")
-    iv = key  # Wyze uses the secret key for the iv as well
-    cipher = AES.new(key, AES.MODE_CBC, iv)
+    key_bytes = key.encode("ascii")
+    iv_bytes = key_bytes  # Wyze uses the secret key for the iv as well
+    cipher = AES.new(key_bytes, AES.MODE_CBC, iv_bytes)
     enc = cipher.encrypt(raw)
     b64_enc = base64.b64encode(enc).decode("ascii")
     b64_enc = b64_enc.replace("/", r"\/")
     return b64_enc
 
 
-def wyze_decrypt(key, enc):
+def wyze_decrypt(key: str, enc: str) -> str:
     """
     Reimplementation of the Wyze app's decryption mechanism.
 
     The decompiled code can be found here 👇
     https://paste.sr.ht/~joshmulliken/e9f67e05c4a774004b226d2ac1f070b6d341cb39
     """
-    enc = base64.b64decode(enc)
+    enc_bytes = base64.b64decode(enc)
 
-    key = key.encode("ascii")
-    iv = key
-    cipher = AES.new(key, AES.MODE_CBC, iv)
-    decrypt = cipher.decrypt(enc)
+    key_bytes = key.encode("ascii")
+    iv_bytes = key_bytes
+    cipher = AES.new(key_bytes, AES.MODE_CBC, iv_bytes)
+    decrypted = cipher.decrypt(enc_bytes)
 
-    decrypt_txt = decrypt.decode("ascii")
+    decrypt_txt = decrypted.decode("ascii")
 
     return decrypt_txt
 
@@ -110,7 +110,7 @@ def create_password(password: str) -> str:
     return hashlib.md5(hex2.encode()).hexdigest()
 
 
-def check_for_errors_standard(service, response_json: Dict[str, Any]) -> None:
+def check_for_errors_standard(service: Any, response_json: Dict[str, Any]) -> None:
     """
     Check for standard Wyze API error codes and raise exceptions as needed.
 
@@ -133,7 +133,7 @@ def check_for_errors_standard(service, response_json: Dict[str, Any]) -> None:
             raise UnknownApiError(response_code, response_json["msg"])
 
 
-def check_for_errors_lock(service, response_json: Dict[str, Any]) -> None:
+def check_for_errors_lock(service: Any, response_json: Dict[str, Any]) -> None:
     """
     Check for lock-specific API errors and raise exceptions as needed.
 
@@ -151,7 +151,7 @@ def check_for_errors_lock(service, response_json: Dict[str, Any]) -> None:
             raise UnknownApiError(response_json)
 
 
-def check_for_errors_devicemgmt(service, response_json: Dict[Any, Any]) -> None:
+def check_for_errors_devicemgmt(service: Any, response_json: Dict[Any, Any]) -> None:
     """
     Check for device management API errors and raise exceptions as needed.
 
@@ -167,7 +167,7 @@ def check_for_errors_devicemgmt(service, response_json: Dict[Any, Any]) -> None:
             raise UnknownApiError(response_json)
 
 
-def check_for_errors_iot(service, response_json: Dict[Any, Any]) -> None:
+def check_for_errors_iot(service: Any, response_json: Dict[Any, Any]) -> None:
     """
     Check for IoT API errors and raise exceptions as needed.
 
@@ -183,7 +183,7 @@ def check_for_errors_iot(service, response_json: Dict[Any, Any]) -> None:
             raise UnknownApiError(response_json)
 
 
-def check_for_errors_hms(service, response_json: Dict[Any, Any]) -> None:
+def check_for_errors_hms(service: Any, response_json: Dict[Any, Any]) -> None:
     """
     Check for home monitoring system (HMS) API errors and raise exceptions as needed.
 
@@ -196,7 +196,7 @@ def check_for_errors_hms(service, response_json: Dict[Any, Any]) -> None:
         raise AccessTokenError("Access Token expired, attempting to refresh")
 
 
-def return_event_for_device(device: Device, events: List[Event]) -> Optional[Event]:
+def return_event_for_device(device: Device, events: Sequence[Event]) -> Optional[Event]:
     """
     Retrieve the most recent event matching a given device from a list of events.
 

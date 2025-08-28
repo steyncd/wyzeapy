@@ -83,7 +83,7 @@ class Bulb(Device):
         return self._color
 
     @color.setter
-    def color(self, value) -> None:
+    def color(self, value: str) -> None:
         """Setter for the color property
         :param value: Color of the bulb
         """
@@ -150,7 +150,7 @@ class BulbService(BaseService):
 
         return [Bulb(bulb.raw_dict) for bulb in bulbs]
 
-    async def turn_on(self, bulb: Bulb, local_control, options=None):
+    async def turn_on(self, bulb: Bulb, local_control: bool, options: Optional[List[Dict[str, str]]] = None) -> None:
         plist = [create_pid_pair(PropertyIDs.ON, "1")]
 
         if options is not None:
@@ -176,7 +176,7 @@ class BulbService(BaseService):
             else:
                 await self._run_action_list(bulb, plist)  # Lightstrips
 
-    async def turn_off(self, bulb: Bulb, local_control):
+    async def turn_off(self, bulb: Bulb, local_control: bool) -> None:
         plist = [create_pid_pair(PropertyIDs.ON, "0")]
 
         if bulb.type in [DeviceTypes.LIGHT]:
@@ -187,7 +187,7 @@ class BulbService(BaseService):
             else:
                 await self._run_action_list(bulb, plist)
 
-    async def set_color_temp(self, bulb: Bulb, color_temp: int):
+    async def set_color_temp(self, bulb: Bulb, color_temp: int) -> None:
         plist = [create_pid_pair(PropertyIDs.COLOR_TEMP, str(color_temp))]
 
         if bulb.type in [DeviceTypes.LIGHT]:
@@ -195,7 +195,7 @@ class BulbService(BaseService):
         elif bulb.type in [DeviceTypes.MESH_LIGHT]:
             await self._local_bulb_command(bulb, plist)
 
-    async def set_color(self, bulb: Bulb, color: str, local_control):
+    async def set_color(self, bulb: Bulb, color: str, local_control: bool) -> None:
         plist = [create_pid_pair(PropertyIDs.COLOR, str(color))]
         if bulb.type in [DeviceTypes.MESH_LIGHT]:
             if local_control and not bulb.cloud_fallback:
@@ -203,7 +203,7 @@ class BulbService(BaseService):
             else:
                 await self._run_action_list(bulb, plist)
 
-    async def set_brightness(self, bulb: Device, brightness: int):
+    async def set_brightness(self, bulb: Device, brightness: int) -> None:
         plist = [create_pid_pair(PropertyIDs.BRIGHTNESS, str(brightness))]
 
         if bulb.type in [DeviceTypes.LIGHT]:
@@ -211,12 +211,12 @@ class BulbService(BaseService):
         if bulb.type in [DeviceTypes.MESH_LIGHT]:
             await self._local_bulb_command(bulb, plist)
 
-    async def music_mode_on(self, bulb: Device):
+    async def music_mode_on(self, bulb: Device) -> None:
         plist = [create_pid_pair(PropertyIDs.LIGHTSTRIP_MUSIC_MODE, "1")]
 
         await self._run_action_list(bulb, plist)
 
-    async def music_mode_off(self, bulb: Device):
+    async def music_mode_off(self, bulb: Device) -> None:
         plist = [create_pid_pair(PropertyIDs.LIGHTSTRIP_MUSIC_MODE, "0")]
 
         await self._run_action_list(bulb, plist)

@@ -116,7 +116,7 @@ class BaseService:
         return token.access_token
 
     @staticmethod
-    async def start_update_manager():
+    async def start_update_manager() -> None:
         """Start the global update manager for automatic device state updates.
 
         This initializes the background update system that handles periodic
@@ -133,7 +133,7 @@ class BaseService:
                 BaseService._update_manager.update_next()
             )
 
-    def register_updater(self, device: Device, interval):
+    def register_updater(self, device: Device, interval: int) -> None:
         """Register a device for automatic status updates at a specified interval.
 
         This enables automatic background updates for a device, periodically refreshing
@@ -153,7 +153,7 @@ class BaseService:
         BaseService._update_manager.add_updater(self._updater)
         self._updater_dict[self._updater.device] = self._updater
 
-    def unregister_updater(self, device: Device):
+    def unregister_updater(self, device: Device) -> None:
         """Stop automatic updates for a device.
 
         This removes a device from the automatic update system to stop
@@ -171,7 +171,7 @@ class BaseService:
             BaseService._update_manager.del_updater(self._updater_dict[device])
             del self._updater_dict[device]
 
-    async def set_push_info(self, on: bool):
+    async def set_push_info(self, on: bool) -> None:
         """Set push info for the user.
 
         :param on: Whether to enable or disable push notifications.
@@ -324,7 +324,7 @@ class BaseService:
 
         return property_list
 
-    async def _set_property_list(self, device: Device, plist: List[Dict[str, str]]):
+    async def _set_property_list(self, device: Device, plist: List[Dict[str, str]]) -> None:
         """Wraps the api.wyzecam.com/app/v2/device/set_property_list endpoint
 
         :param device: The device for which to set the property(ies)
@@ -354,7 +354,7 @@ class BaseService:
 
         check_for_errors_standard(self, response_json)
 
-    async def _run_action_list(self, device: Device, plist: List[Dict[Any, Any]]):
+    async def _run_action_list(self, device: Device, plist: List[Dict[Any, Any]]) -> None:
         """Wraps the api.wyzecam.com/app/v2/auto/run_action_list endpoint
 
         :param device: The device for which to run the action list
@@ -425,7 +425,7 @@ class BaseService:
         check_for_errors_standard(self, response_json)
         return response_json
 
-    async def _run_action(self, device: Device, action: str):
+    async def _run_action(self, device: Device, action: str) -> None:
         """Wraps the api.wyzecam.com/app/v2/auto/run_action endpoint
 
         :param device: The device for which to run the action
@@ -457,7 +457,7 @@ class BaseService:
 
         check_for_errors_standard(self, response_json)
 
-    async def _run_action_devicemgmt(self, device: Device, type: str, value: str):
+    async def _run_action_devicemgmt(self, device: Device, type: str, value: str) -> None:
         """Wraps the devicemgmt-service-beta.wyze.com/device-management/api/action/run_action endpoint
 
         :param device: The device for which to run the action
@@ -494,7 +494,7 @@ class BaseService:
 
     async def _set_toggle(
         self, device: Device, toggleType: DeviceMgmtToggleType, state: str
-    ):
+    ) -> None:
         """Wraps the ai-subscription-service-beta.wyzecam.com/v4/subscription-service/toggle-management endpoint
 
         :param device: The device for which to get the state
@@ -572,7 +572,7 @@ class BaseService:
 
         return response_json
 
-    async def _set_property(self, device: Device, pid: str, pvalue: str):
+    async def _set_property(self, device: Device, pid: str, pvalue: str) -> None:
         """Wraps the api.wyzecam.com/app/v2/device/set_property endpoint
 
         :param device: The device for which to set the property
@@ -603,7 +603,7 @@ class BaseService:
 
         check_for_errors_standard(self, response_json)
 
-    async def _monitoring_profile_active(self, hms_id: str, home: int, away: int):
+    async def _monitoring_profile_active(self, hms_id: str, home: int, away: int) -> None:
         """Wraps the hms.api.wyze.com/api/v1/monitoring/v1/profile/active endpoint
 
         :param hms_id: The hms id
@@ -842,7 +842,7 @@ class BaseService:
 
         check_for_errors_iot(self, response_json)
 
-    async def _local_bulb_command(self, bulb, plist):
+    async def _local_bulb_command(self, bulb: Any, plist: List[Dict[str, str]]) -> None:
         # await self._auth_lib.refresh_if_should()
 
         characteristics = {
@@ -878,7 +878,7 @@ class BaseService:
             bulb.cloud_fallback = True
 
     async def _get_plug_history(
-        self, device: Device, start_time, end_time
+        self, device: Device, start_time: int, end_time: int
     ) -> List[Dict[Any, Any]]:
         """Wraps the https://api.wyzecam.com/app/v2/plug/usage_record_list endpoint
 
@@ -908,7 +908,8 @@ class BaseService:
 
         check_for_errors_standard(self, response_json)
 
-        return response_json["data"]["usage_record_list"]
+        from typing import cast
+        return cast(List[Dict[Any, Any]], response_json["data"]["usage_record_list"]) 
 
     async def _get_zone_by_device(self, url: str, device: Device) -> Dict[Any, Any]:
         await self._auth_lib.refresh_if_should()

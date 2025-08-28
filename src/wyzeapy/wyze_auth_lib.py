@@ -6,7 +6,7 @@
 import asyncio
 import logging
 import time
-from typing import Awaitable, Callable, Dict, Any, Optional
+from typing import Awaitable, Callable, Dict, Any, Optional, cast
 
 from aiohttp import TCPConnector, ClientSession, ContentTypeError
 
@@ -53,31 +53,31 @@ class Token:
     # Token is good for 24 hours; schedule refresh after 23 hours
     REFRESH_INTERVAL = 82800
 
-    def __init__(self, access_token, refresh_token, refresh_time: Optional[float] = None):
+    def __init__(self, access_token: str, refresh_token: str, refresh_time: Optional[float] = None):
         self._access_token: str = access_token
         self._refresh_token: str = refresh_token
-        self.expired = False
+        self.expired: bool = False
         self._refresh_time: float = refresh_time or time.time() + Token.REFRESH_INTERVAL
 
     @property
-    def access_token(self):
+    def access_token(self) -> str:
         return self._access_token
 
     @access_token.setter
-    def access_token(self, access_token):
+    def access_token(self, access_token: str) -> None:
         self._access_token = access_token
         self._refresh_time = time.time() + Token.REFRESH_INTERVAL
 
     @property
-    def refresh_token(self):
+    def refresh_token(self) -> str:
         return self._refresh_token
 
     @refresh_token.setter
-    def refresh_token(self, refresh_token):
+    def refresh_token(self, refresh_token: str) -> None:
         self._refresh_token = refresh_token
 
     @property
-    def refresh_time(self):
+    def refresh_time(self) -> float:
         return self._refresh_time
 
 
@@ -97,13 +97,13 @@ class WyzeAuthLib:
 
     def __init__(
         self,
-        username=None,
-        password=None,
-        key_id=None,
-        api_key=None,
+        username: Optional[str] = None,
+        password: Optional[str] = None,
+        key_id: Optional[str] = None,
+        api_key: Optional[str] = None,
         token: Optional[Token] = None,
-        token_callback=None,
-    ):
+        token_callback: Optional[Callable[[Token], Awaitable[None]]] = None,
+    ) -> None:
         """Initialize WyzeAuthLib for authentication and token management.
 
         Args:
@@ -121,20 +121,20 @@ class WyzeAuthLib:
         self.token: Optional[Token] = token
         self.session_id: Optional[str] = None
         self.verification_id: Optional[str] = None
-        self.two_factor_type: Optional[str] = None  # type: ignore
+        self.two_factor_type: Optional[str] = None
         self.refresh_lock: asyncio.Lock = asyncio.Lock()
         self.token_callback: Optional[Callable[[Token], Awaitable[None]]] = token_callback
 
     @classmethod
     async def create(
         cls,
-        username=None,
-        password=None,
-        key_id=None,
-        api_key=None,
+        username: Optional[str] = None,
+        password: Optional[str] = None,
+        key_id: Optional[str] = None,
+        api_key: Optional[str] = None,
         token: Optional[Token] = None,
-        token_callback=None,
-    ):
+        token_callback: Optional[Callable[[Token], Awaitable[None]]] = None,
+    ) -> "WyzeAuthLib":
         """Factory to instantiate WyzeAuthLib with credentials or existing token.
 
         Args:
@@ -173,7 +173,7 @@ class WyzeAuthLib:
         return self
 
     async def get_token_with_username_password(
-        self, username, password, key_id, api_key
+        self, username: str, password: str, key_id: str, api_key: str
     ) -> Token:
         """Authenticate using email/password and retrieve new Token.
 
@@ -248,7 +248,7 @@ class WyzeAuthLib:
             await self.token_callback(self.token)
         return self.token
 
-    async def get_token_with_2fa(self, verification_code) -> Token:
+    async def get_token_with_2fa(self, verification_code: str) -> Token:
         """Complete login flow using two-factor authentication code.
 
         Args:
@@ -297,7 +297,7 @@ class WyzeAuthLib:
         """Check whether the current token has reached its refresh time."""
         return self.token is not None and time.time() >= self.token.refresh_time
 
-    async def refresh_if_should(self):
+    async def refresh_if_should(self) -> None:
         """Refresh the token proactively if expired or past refresh_time."""
         if self.token is not None and (self.should_refresh or self.token.expired):
             async with self.refresh_lock:
@@ -346,7 +346,7 @@ class WyzeAuthLib:
             await self.token_callback(self.token)
         self.token.expired = False
 
-    def sanitize(self, data):
+    def sanitize(self, data: Any) -> Any:
         """Recursively sanitize sensitive fields in dicts for safe logging.
 
         Args:
@@ -361,7 +361,13 @@ class WyzeAuthLib:
                     data[key] = self.SANITIZE_STRING
         return data
 
-    async def post(self, url, json=None, headers=None, data=None) -> Dict[Any, Any]:
+    async def post(
+        self,
+        url: str,
+        json: Optional[Any] = None,
+        headers: Optional[Dict[str, Any]] = None,
+        data: Optional[Any] = None,
+    ) -> Dict[Any, Any]:
         """Send an HTTP POST request with sanitized logging.
 
         Args:
@@ -389,9 +395,15 @@ class WyzeAuthLib:
                 _LOGGER.debug(f"Response Json: {self.sanitize(response_json)}")
             except ContentTypeError:
                 _LOGGER.debug(f"Response: {response}")
-            return await response.json()
+            return cast(Dict[Any, Any], await response.json())
 
-    async def put(self, url, json=None, headers=None, data=None) -> Dict[Any, Any]:
+    async def put(
+        self,
+        url: str,
+        json: Optional[Any] = None,
+        headers: Optional[Dict[str, Any]] = None,
+        data: Optional[Any] = None,
+    ) -> Dict[Any, Any]:
         """Send an HTTP PUT request with sanitized logging.
 
         See `post` for parameter details.
@@ -412,9 +424,14 @@ class WyzeAuthLib:
                 _LOGGER.debug(f"Response Json: {self.sanitize(response_json)}")
             except ContentTypeError:
                 _LOGGER.debug(f"Response: {response}")
-            return await response.json()
+            return cast(Dict[Any, Any], await response.json())
 
-    async def get(self, url, headers=None, params=None) -> Dict[Any, Any]:
+    async def get(
+        self,
+        url: str,
+        headers: Optional[Dict[str, Any]] = None,
+        params: Optional[Any] = None,
+    ) -> Dict[Any, Any]:
         """Send an HTTP GET request with sanitized logging.
 
         Args:
@@ -440,9 +457,15 @@ class WyzeAuthLib:
                 _LOGGER.debug(f"Response Json: {self.sanitize(response_json)}")
             except ContentTypeError:
                 _LOGGER.debug(f"Response: {response}")
-            return await response.json()
+            return cast(Dict[Any, Any], await response.json())
 
-    async def patch(self, url, headers=None, params=None, json=None) -> Dict[Any, Any]:
+    async def patch(
+        self,
+        url: str,
+        headers: Optional[Dict[str, Any]] = None,
+        params: Optional[Any] = None,
+        json: Optional[Any] = None,
+    ) -> Dict[Any, Any]:
         """Send an HTTP PATCH request with sanitized logging.
 
         See `get`/`post` for parameter details.
@@ -465,9 +488,14 @@ class WyzeAuthLib:
                 _LOGGER.debug(f"Response Json: {self.sanitize(response_json)}")
             except ContentTypeError:
                 _LOGGER.debug(f"Response: {response}")
-            return await response.json()
+            return cast(Dict[Any, Any], await response.json())
 
-    async def delete(self, url, headers=None, json=None) -> Dict[Any, Any]:
+    async def delete(
+        self,
+        url: str,
+        headers: Optional[Dict[str, Any]] = None,
+        json: Optional[Any] = None,
+    ) -> Dict[Any, Any]:
         """Send an HTTP DELETE request with sanitized logging.
 
         Args:
@@ -493,4 +521,4 @@ class WyzeAuthLib:
                 _LOGGER.debug(f"Response Json: {self.sanitize(response_json)}")
             except ContentTypeError:
                 _LOGGER.debug(f"Response: {response}")
-            return await response.json()
+            return cast(Dict[Any, Any], await response.json())

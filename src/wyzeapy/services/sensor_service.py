@@ -47,7 +47,7 @@ class SensorService(BaseService):
 
     async def register_for_updates(
         self, sensor: Sensor, callback: Callable[[Sensor], None]
-    ):
+    ) -> None:
         _LOGGER.debug(f"Registering sensor: {sensor.nickname} for updates")
         loop = asyncio.get_event_loop()
         if not self._updater_thread:
@@ -62,14 +62,14 @@ class SensorService(BaseService):
 
         self._subscribers.append((sensor, callback))
 
-    async def deregister_for_updates(self, sensor: Sensor):
+    async def deregister_for_updates(self, sensor: Sensor) -> None:
         self._subscribers = [
             (sense, callback)
             for sense, callback in self._subscribers
             if sense.mac != sensor.mac
         ]
 
-    def update_worker(self, loop):
+    def update_worker(self, loop: asyncio.AbstractEventLoop) -> None:
         while True:
             for sensor, callback in self._subscribers:
                 _LOGGER.debug(f"Providing update for {sensor.nickname}")
