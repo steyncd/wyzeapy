@@ -86,6 +86,24 @@ def olive_create_get_payload_irrigation_schedule_runs(
     return {"device_id": device_mac, "nonce": str(nonce)}
 
 
+def olive_create_post_payload_irrigation_pause(
+    device_mac: str
+) -> Dict[str, Any]:
+    """Create payload for pausing irrigation."""
+    nonce = int(time.time() * 1000)
+
+    return {"device_id": device_mac, "nonce": str(nonce)}
+
+
+def olive_create_post_payload_irrigation_resume(
+    device_mac: str
+) -> Dict[str, Any]:
+    """Create payload for resuming irrigation."""
+    nonce = int(time.time() * 1000)
+
+    return {"device_id": device_mac, "nonce": str(nonce)}
+
+
 def olive_create_post_payload(
     device_mac: str, device_model: str, prop_key: str, value: Any
 ) -> Dict[str, Any]:

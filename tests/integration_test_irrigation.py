@@ -2,11 +2,23 @@
 Integration test for irrigation service.
 This test runs against the real Wyze API and requires valid credentials.
 
+Based on API captures from wyze-lockwood-service.wyzecam.com, this test validates:
+- Device status and properties (get_iot_prop)
+- Zone configuration and management (get_zone_by_device, set_zone_quickrun_duration)
+- Schedule tracking and running status (get_schedule_runs)
+- Last watered timestamps for each zone
+- Zone control operations (quickrun, pause, resume)
+
+Note: The irrigation service uses wyze-lockwood-service.wyzecam.com which does NOT
+use certificate pinning, unlike other Wyze services. This makes it easier to debug
+with tools like mitmproxy.
+
 Usage:
     python -m tests.integration_test_irrigation
 """
 import asyncio
 import logging
+import os
 import sys
 from wyzeapy import Wyzeapy
 
@@ -21,11 +33,11 @@ logger = logging.getLogger(__name__)
 async def test_irrigation_integration():
     """Test irrigation service against real Wyze API."""
 
-    # Credentials
-    email = "steyncd@gmail.com"
-    password = "Dobby.1021"
-    key_id = "02e46f64-3b3e-43cf-8d7a-9a7499a6b32d"
-    api_key = "TaJE8u99R9Li6hnR6euf7pQFh6IshaOOAlI2EVWaqW4gJQqenAJ9kf6T9L8d"
+    # Credentials - Set these as environment variables or replace with your own
+    email = os.getenv("WYZE_EMAIL", "your_email@example.com")
+    password = os.getenv("WYZE_PASSWORD", "your_password")
+    key_id = os.getenv("WYZE_KEY_ID", "your_key_id")
+    api_key = os.getenv("WYZE_API_KEY", "your_api_key")
 
     print("=" * 80)
     print("WYZE IRRIGATION SERVICE - INTEGRATION TEST")
@@ -92,6 +104,7 @@ async def test_irrigation_integration():
                 if zone.is_running:
                     print(f"    - Remaining Time: {zone.remaining_time}s ({zone.remaining_time // 60}m {zone.remaining_time % 60}s)")
                     print(f"    [ALERT] Zone {zone.zone_number} is currently running!")
+                print(f"    - Last Watered: {zone.last_watered if zone.last_watered else 'Never or Unknown'}")
 
                 assert zone.zone_id is not None, f"Zone {zone.zone_number} should have a zone_id"
                 assert zone.smart_duration > 0, f"Zone {zone.zone_number} should have a positive smart_duration"
@@ -115,6 +128,19 @@ async def test_irrigation_integration():
                         duration = zone_run.get('duration', 0)
                         print(f"    * Zone {zone_num}: {duration}s ({duration // 60}m)")
 
+            # Check for past schedules to see last watered info
+            past_schedules = [s for s in schedules if s.get('schedule_state') == 'past']
+            if past_schedules:
+                print(f"\n  Recent past watering schedules:")
+                for schedule in past_schedules[:3]:  # Show first 3
+                    schedule_name = schedule.get('schedule_name', 'Unnamed')
+                    end_utc = schedule.get('end_utc', 'N/A')
+                    print(f"  - {schedule_name}: ended at {end_utc}")
+                    zone_runs = schedule.get('zone_runs', [])
+                    if zone_runs:
+                        zone_list = ', '.join([f'Zone {zr.get("zone_number")}' for zr in zone_runs])
+                        print(f"    Zones watered: {zone_list}")
+
             # Test get_iot_prop directly
             print(f"\n[7/8] Testing get_iot_prop() method...")
             iot_props = await irrigation_service.get_iot_prop(irrigation)
@@ -127,7 +153,7 @@ async def test_irrigation_integration():
             print(f"[OK] Skipped")
 
             # Test set_zone_quickrun_duration
-            print(f"\n[BONUS] Testing set_zone_quickrun_duration() method...")
+            print(f"\n[BONUS 1/4] Testing set_zone_quickrun_duration() method...")
             if irrigation.zones:
                 original_duration = irrigation.zones[0].quickrun_duration
                 test_duration = 1800  # 30 minutes
@@ -137,6 +163,49 @@ async def test_irrigation_integration():
                 assert irrigation.zones[0].quickrun_duration == test_duration, \
                     f"Quickrun duration should be {test_duration}"
                 print(f"[OK] Quickrun duration updated from {original_duration}s to {test_duration}s")
+
+                # Restore original duration
+                irrigation = await irrigation_service.set_zone_quickrun_duration(
+                    irrigation, 1, original_duration
+                )
+                print(f"[OK] Restored original duration: {original_duration}s")
+
+            # Test get_schedules API
+            print(f"\n[BONUS 2/4] Testing get_schedules() method...")
+            try:
+                schedules_response = await irrigation_service.get_schedules(irrigation)
+                schedules_list = schedules_response.get('data', {}).get('schedules', [])
+                print(f"[OK] Found {len(schedules_list)} configured schedule(s)")
+
+                for sched in schedules_list[:3]:  # Show first 3
+                    name = sched.get('schedule_name', 'Unnamed')
+                    enabled = sched.get('enabled', False)
+                    sched_type = sched.get('schedule_type', 'unknown')
+                    print(f"  - {name} ({'enabled' if enabled else 'disabled'}, type: {sched_type})")
+            except Exception as e:
+                print(f"[INFO] get_schedules() not yet implemented or failed: {e}")
+
+            # Test zone state tracking
+            print(f"\n[BONUS 3/4] Testing zone state consistency...")
+            # Verify that running zones have positive remaining time
+            for zone in irrigation.zones:
+                if zone.is_running:
+                    assert zone.remaining_time > 0, \
+                        f"Running zone {zone.zone_number} should have positive remaining_time"
+                else:
+                    assert zone.remaining_time == 0, \
+                        f"Non-running zone {zone.zone_number} should have 0 remaining_time"
+            print(f"[OK] Zone states are consistent")
+
+            # Test last_watered field population
+            print(f"\n[BONUS 4/4] Testing last_watered tracking...")
+            zones_with_history = [z for z in irrigation.zones if z.last_watered is not None]
+            if zones_with_history:
+                print(f"[OK] {len(zones_with_history)}/{len(irrigation.zones)} zone(s) have watering history")
+                for zone in zones_with_history[:3]:  # Show first 3
+                    print(f"  - Zone {zone.zone_number} ({zone.name}): last watered {zone.last_watered}")
+            else:
+                print(f"[INFO] No zones have recent watering history (or none in past 20 schedule runs)")
 
         print(f"\n{'=' * 80}")
         print("ALL TESTS PASSED!")

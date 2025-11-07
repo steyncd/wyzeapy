@@ -71,6 +71,9 @@ class Zone:
         self.is_running: bool = False
         self.remaining_time: int = 0  # seconds remaining
 
+        # Last watered timestamp - updated by get_schedule_runs()
+        self.last_watered: str | None = None  # ISO format UTC timestamp when zone last finished watering
+
 class Irrigation(Device):
     def __init__(self, dictionary: Dict[Any, Any]):
         super().__init__(dictionary)
@@ -150,16 +153,40 @@ class IrrigationService(BaseService):
 
     async def stop_running_schedule(self, device: Device) -> Dict[Any, Any]:
         """Stop any currently running irrigation schedule.
-        
+
         Args:
             device: The irrigation device
-            
+
         Returns:
             Dict containing the API response
         """
         url = "https://wyze-lockwood-service.wyzecam.com/plugin/irrigation/runningschedule"
         action = "STOP"
         return await self._stop_running_schedule(url, device, action)
+
+    async def pause_irrigation(self, device: Device) -> Dict[Any, Any]:
+        """Pause currently running irrigation.
+
+        Args:
+            device: The irrigation device
+
+        Returns:
+            Dict containing the API response
+        """
+        url = "https://wyze-lockwood-service.wyzecam.com/plugin/irrigation/pause"
+        return await self._pause_irrigation(url, device)
+
+    async def resume_irrigation(self, device: Device) -> Dict[Any, Any]:
+        """Resume paused irrigation.
+
+        Args:
+            device: The irrigation device
+
+        Returns:
+            Dict containing the API response
+        """
+        url = "https://wyze-lockwood-service.wyzecam.com/plugin/irrigation/resume"
+        return await self._resume_irrigation(url, device)
 
     async def set_zone_quickrun_duration(self, irrigation: Irrigation, zone_number: int, duration: int) -> Irrigation:
         """Set the quickrun duration for a specific zone.
@@ -209,21 +236,34 @@ class IrrigationService(BaseService):
         url = "https://wyze-lockwood-service.wyzecam.com/plugin/irrigation/schedule_runs"
         return await self._get_schedule_runs(url, device, limit)
 
+    async def get_schedules(self, device: Device) -> Dict[Any, Any]:
+        """Get configured schedules for the device.
+
+        Args:
+            device: The irrigation device
+
+        Returns:
+            Dict containing configured schedules (not run history, but schedule definitions)
+        """
+        url = "https://wyze-lockwood-service.wyzecam.com/plugin/irrigation/schedule"
+        return await self._get_schedules(url, device)
+
     async def _update_running_status(self, irrigation: Irrigation) -> None:
         """Update running status for all zones by checking schedule_runs API.
 
         This method:
         1. Calls schedule_runs API to get current running schedules
         2. Updates is_running and remaining_time for each zone
+        3. Updates last_watered timestamp from most recent past schedule
         """
         # Reset all zones to not running
         for zone in irrigation.zones:
             zone.is_running = False
             zone.remaining_time = 0
 
-        # Get schedule runs
+        # Get schedule runs (increase limit to get more past runs)
         try:
-            response = await self.get_schedule_runs(irrigation, limit=5)
+            response = await self.get_schedule_runs(irrigation, limit=20)
             schedules = response.get('data', {}).get('schedules', [])
 
             # Find running schedule
@@ -254,6 +294,23 @@ class IrrigationService(BaseService):
                                             zone.is_running = True
                                             zone.remaining_time = zone_remaining
                                         break
+
+            # Update last_watered timestamps from past schedules
+            # Find the most recent completed watering for each zone
+            past_schedules = [s for s in schedules if s.get('schedule_state') == 'past']
+            for zone in irrigation.zones:
+                # Look through past schedules for this zone (most recent first)
+                for schedule in past_schedules:
+                    zone_runs = schedule.get('zone_runs', [])
+                    for zone_run in zone_runs:
+                        if zone_run.get('zone_number') == zone.zone_number:
+                            # Found a past run for this zone, use its end time
+                            zone_end_utc = zone_run.get('end_utc')
+                            if zone_end_utc:
+                                zone.last_watered = zone_end_utc
+                                break  # Use the first (most recent) match
+                    if zone.last_watered:
+                        break  # Stop searching once we found the most recent
 
         except Exception as e:
             _LOGGER.debug(f"Could not update running status: {e}")

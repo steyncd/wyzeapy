@@ -218,6 +218,85 @@ class TestIrrigationService(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(zone.quickrun_duration, 1200)  # Should default to smart_duration
         self.assertFalse(zone.is_running)
         self.assertEqual(zone.remaining_time, 0)
+        self.assertIsNone(zone.last_watered)
+
+    async def test_update_irrigation_with_last_watered(self):
+        mock_irrigation = Irrigation({
+            "device_type": "Irrigation",
+            "product_model": "BS_WK1",
+            "mac": "TEST789",
+            "raw_dict": {},
+            "product_type": DeviceTypes.IRRIGATION.value,
+        })
+
+        # Mock the IoT property response
+        self.irrigation_service.get_iot_prop.return_value = {
+            'data': {
+                'props': {
+                    'RSSI': -50,
+                    'IP': '192.168.1.52',
+                    'sn': 'SN789',
+                    'ssid': 'TestNetwork',
+                    IrrigationProps.IOT_STATE.value: 'connected'
+                }
+            }
+        }
+
+        # Mock the zones response
+        self.irrigation_service.get_zone_by_device.return_value = {
+            'data': {
+                'zones': [
+                    {
+                        'zone_number': 1,
+                        'name': 'Zone 1',
+                        'enabled': True,
+                        'zone_id': 'zone_1',
+                        'smart_duration': 600
+                    },
+                    {
+                        'zone_number': 2,
+                        'name': 'Zone 2',
+                        'enabled': True,
+                        'zone_id': 'zone_2',
+                        'smart_duration': 600
+                    }
+                ]
+            }
+        }
+
+        # Mock schedule runs response with past schedules
+        self.irrigation_service.get_schedule_runs.return_value = {
+            'data': {
+                'schedules': [
+                    {
+                        'schedule_state': 'past',
+                        'schedule_name': 'Morning Watering',
+                        'start_utc': '2025-11-07T08:00:00Z',
+                        'end_utc': '2025-11-07T08:20:00Z',
+                        'zone_runs': [
+                            {
+                                'zone_number': 1,
+                                'start_utc': '2025-11-07T08:00:00Z',
+                                'end_utc': '2025-11-07T08:10:00Z',
+                                'duration': 600
+                            },
+                            {
+                                'zone_number': 2,
+                                'start_utc': '2025-11-07T08:10:00Z',
+                                'end_utc': '2025-11-07T08:20:00Z',
+                                'duration': 600
+                            }
+                        ]
+                    }
+                ]
+            }
+        }
+
+        updated_irrigation = await self.irrigation_service.update(mock_irrigation)
+
+        # Check that last_watered is set for both zones
+        self.assertEqual(updated_irrigation.zones[0].last_watered, '2025-11-07T08:10:00Z')
+        self.assertEqual(updated_irrigation.zones[1].last_watered, '2025-11-07T08:20:00Z')
 
     async def test_update_device_props(self):
         mock_irrigation = Irrigation({
