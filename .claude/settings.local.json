@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python test_irrigation.py:*)",
+      "Bash(python -m tests.integration_test_irrigation:*)",
+      "Bash(python -m pytest:*)",
+      "Bash(python -m unittest:*)",
+      "Bash(del test_irrigation.py)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
