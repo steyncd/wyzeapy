@@ -87,6 +87,10 @@ class Irrigation(Device):
         # the below comes from the device_info call
         self.zones: List[Zone] = []
 
+        # Schedule information - updated by get_schedule_runs()
+        self.next_scheduled_run: str | None = None  # ISO format UTC timestamp of next scheduled run
+        self.last_run_end_time: str | None = None  # ISO format UTC timestamp when last run completed
+
 
 class IrrigationService(BaseService):
     async def update(self, irrigation: Irrigation) -> Irrigation:
@@ -311,6 +315,16 @@ class IrrigationService(BaseService):
                                 break  # Use the first (most recent) match
                     if zone.last_watered:
                         break  # Stop searching once we found the most recent
+
+            # Update device-level schedule information
+            upcoming_schedules = [s for s in schedules if s.get('schedule_state') == 'upcoming']
+            if upcoming_schedules:
+                # Get the first (next) upcoming schedule
+                irrigation.next_scheduled_run = upcoming_schedules[0].get('start_utc')
+
+            if past_schedules:
+                # Get the most recent past schedule end time
+                irrigation.last_run_end_time = past_schedules[0].get('end_utc')
 
         except Exception as e:
             _LOGGER.debug(f"Could not update running status: {e}")
