@@ -981,11 +981,13 @@ class BaseService:
         """Get irrigation device info / settings (e.g. skip_rain, skip_wind).
 
         Mirrors the ``_get_iot_prop`` request pattern but targets the irrigation
-        service's ``device_info`` endpoint with a settings key list.
+        service's ``device_info`` endpoint. The irrigation service expects
+        ``device_id`` (not the ``did`` that olive_create_get_payload emits).
         """
         await self._auth_lib.refresh_if_should()
 
-        payload = olive_create_get_payload(device.mac, keys)
+        nonce = str(int(time.time() * 1000))
+        payload = {"device_id": device.mac, "keys": keys, "nonce": nonce}
         signature = olive_create_signature(payload, self._auth_lib.token.access_token)
         headers = {
             'Accept-Encoding': 'gzip',
