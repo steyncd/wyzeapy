@@ -74,13 +74,23 @@ class Zone:
         # Last watered timestamp - updated by get_schedule_runs()
         self.last_watered: str | None = None  # ISO format UTC timestamp when zone last finished watering
 
-        # Zone characteristics (smart-watering config), if the API provides them.
-        # Parsed defensively across likely key names; left None when absent.
-        self.crop_type: str | None = dictionary.get('crop_type') or dictionary.get('vegetation_type')
+        # Estimated soil moisture at end of day (0-1 fraction) from Wyze's
+        # smart-schedule model. Present on the /zone response.
+        self.soil_moisture: float | None = dictionary.get('soil_moisture_level_at_end_of_day_pct')
+
+        # Zone characteristics / smart-watering config from the /zone response.
+        self.crop_type: str | None = dictionary.get('crop_type')
         self.soil_type: str | None = dictionary.get('soil_type')
-        self.nozzle_type: str | None = dictionary.get('nozzle_type') or dictionary.get('sprinkler_head')
-        self.exposure: str | None = dictionary.get('exposure') or dictionary.get('sun_exposure')
-        self.slope: str | None = dictionary.get('slope') or dictionary.get('slope_type')
+        self.nozzle_type: str | None = dictionary.get('nozzle_type')
+        self.exposure_type: str | None = dictionary.get('exposure_type')
+        self.slope_type: str | None = dictionary.get('slope_type')
+        self.flow_rate = dictionary.get('flow_rate')
+        self.efficiency = dictionary.get('efficiency')
+        self.root_depth = dictionary.get('root_depth')
+        self.available_water_capacity = dictionary.get('available_water_capacity')
+        self.number_of_sprinkler_heads = dictionary.get('number_of_sprinkler_heads')
+        self.area = dictionary.get('area')
+        self.wired: bool | None = dictionary.get('wired')
 
 class Irrigation(Device):
     def __init__(self, dictionary: Dict[Any, Any]):
@@ -130,8 +140,6 @@ class IrrigationService(BaseService):
 
         # Get zones
         zones = (await self.get_zone_by_device(irrigation))['data']['zones']
-        if zones:
-            _LOGGER.debug("Irrigation zone response keys: %s", list(zones[0].keys()))
 
         # Update zones
         irrigation.zones = []
