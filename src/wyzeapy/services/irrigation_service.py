@@ -74,6 +74,14 @@ class Zone:
         # Last watered timestamp - updated by get_schedule_runs()
         self.last_watered: str | None = None  # ISO format UTC timestamp when zone last finished watering
 
+        # Zone characteristics (smart-watering config), if the API provides them.
+        # Parsed defensively across likely key names; left None when absent.
+        self.crop_type: str | None = dictionary.get('crop_type') or dictionary.get('vegetation_type')
+        self.soil_type: str | None = dictionary.get('soil_type')
+        self.nozzle_type: str | None = dictionary.get('nozzle_type') or dictionary.get('sprinkler_head')
+        self.exposure: str | None = dictionary.get('exposure') or dictionary.get('sun_exposure')
+        self.slope: str | None = dictionary.get('slope') or dictionary.get('slope_type')
+
 class Irrigation(Device):
     def __init__(self, dictionary: Dict[Any, Any]):
         super().__init__(dictionary)
@@ -101,6 +109,11 @@ class Irrigation(Device):
         self.skip_low_temp: bool = False  # freeze protection
         self.skip_saturation: bool = False
 
+        # Other device_info settings/diagnostics.
+        self.schedules_enabled: bool = False  # whether scheduled programs are enabled
+        self.wiring: Any = None               # zone wiring/detection info
+        self.rain_sensor: Any = None          # attached rain-sensor info, if any
+
 
 class IrrigationService(BaseService):
     async def update(self, irrigation: Irrigation) -> Irrigation:
@@ -117,6 +130,8 @@ class IrrigationService(BaseService):
 
         # Get zones
         zones = (await self.get_zone_by_device(irrigation))['data']['zones']
+        if zones:
+            _LOGGER.debug("Irrigation zone response keys: %s", list(zones[0].keys()))
 
         # Update zones
         irrigation.zones = []
@@ -416,6 +431,12 @@ class IrrigationService(BaseService):
             irrigation.skip_low_temp = _as_bool(settings.get('skip_low_temp'))
         if 'skip_saturation' in settings:
             irrigation.skip_saturation = _as_bool(settings.get('skip_saturation'))
+        if 'enable_schedules' in settings:
+            irrigation.schedules_enabled = _as_bool(settings.get('enable_schedules'))
+        if 'wiring' in settings:
+            irrigation.wiring = settings.get('wiring')
+        if 'sensor' in settings:
+            irrigation.rain_sensor = settings.get('sensor')
 
         _LOGGER.debug("Irrigation device_info settings keys: %s", list(settings.keys()))
 
