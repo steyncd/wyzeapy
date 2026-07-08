@@ -112,12 +112,21 @@ class Irrigation(Device):
         self.last_run_duration: int = 0  # duration of the most recent completed run, in seconds
         self.active_schedules_count: int = 0  # number of enabled configured schedules
 
-        # Smart-skip settings - updated by get_device_info() (weather intelligence)
-        # These reflect whether the device is configured to skip watering for each condition.
+        # Smart-skip ON/OFF state (weather intelligence). NOTE: these are derived
+        # from the per-schedule *_delay_enabled flags (see _update_active_schedules),
+        # NOT from device_info's skip_* fields - those are numeric THRESHOLDS, not
+        # booleans, so parsing them as on/off always yielded False.
         self.skip_rain: bool = False
         self.skip_wind: bool = False
         self.skip_low_temp: bool = False  # freeze protection
         self.skip_saturation: bool = False
+
+        # Configured skip THRESHOLDS from device_info (informational): e.g.
+        # rain in inches, wind in mph, low_temp in degF, saturation in percent.
+        self.skip_rain_threshold: float | None = None
+        self.skip_wind_threshold: float | None = None
+        self.skip_low_temp_threshold: float | None = None
+        self.skip_saturation_threshold: float | None = None
 
         # Other device_info settings/diagnostics.
         self.schedules_enabled: bool = False  # whether scheduled programs are enabled
@@ -407,12 +416,16 @@ class IrrigationService(BaseService):
         return 0
 
     async def _update_device_settings(self, irrigation: Irrigation) -> None:
-        """Populate smart-skip settings (rain/wind/freeze/saturation) from device_info.
+        """Populate device_info settings: skip THRESHOLDS, schedules-enabled, wiring.
 
         The Wyze irrigation ``device_info`` endpoint returns the configured
-        weather-intelligence skip toggles. The exact nesting of the response is
-        parsed defensively across the common shapes (``data.settings`` /
-        ``data.props`` / ``data``) so it survives minor API differences.
+        weather-intelligence skip *thresholds* (e.g. ``skip_rain="0.125"`` inches,
+        ``skip_wind="20"`` mph, ``skip_saturation="100"`` percent, ``skip_low_temp="32"``
+        degF) - NOT on/off booleans. The on/off state of each skip is taken from
+        the per-schedule ``*_delay_enabled`` flags in ``_update_active_schedules``.
+        The exact nesting of the response is parsed defensively across the common
+        shapes (``data.settings`` / ``data.props`` / ``data``) so it survives minor
+        API differences.
         """
         response = await self.get_device_info(irrigation)
         data = response.get('data', {}) if isinstance(response, dict) else {}
@@ -431,14 +444,22 @@ class IrrigationService(BaseService):
                 return value.strip().lower() in ('1', 'true', 'yes', 'on', 'enabled')
             return False
 
+        def _as_float(value: Any) -> float | None:
+            try:
+                return float(value)
+            except (TypeError, ValueError):
+                return None
+
+        # Capture the numeric skip thresholds (informational). The on/off flags
+        # are derived from the schedules, not from these values.
         if 'skip_rain' in settings:
-            irrigation.skip_rain = _as_bool(settings.get('skip_rain'))
+            irrigation.skip_rain_threshold = _as_float(settings.get('skip_rain'))
         if 'skip_wind' in settings:
-            irrigation.skip_wind = _as_bool(settings.get('skip_wind'))
+            irrigation.skip_wind_threshold = _as_float(settings.get('skip_wind'))
         if 'skip_low_temp' in settings:
-            irrigation.skip_low_temp = _as_bool(settings.get('skip_low_temp'))
+            irrigation.skip_low_temp_threshold = _as_float(settings.get('skip_low_temp'))
         if 'skip_saturation' in settings:
-            irrigation.skip_saturation = _as_bool(settings.get('skip_saturation'))
+            irrigation.skip_saturation_threshold = _as_float(settings.get('skip_saturation'))
         if 'enable_schedules' in settings:
             irrigation.schedules_enabled = _as_bool(settings.get('enable_schedules'))
         if 'wiring' in settings:
@@ -449,11 +470,25 @@ class IrrigationService(BaseService):
         _LOGGER.debug("Irrigation device_info settings keys: %s", list(settings.keys()))
 
     async def _update_active_schedules(self, irrigation: Irrigation) -> None:
-        """Populate the count of enabled configured schedules from get_schedules."""
+        """Populate enabled-schedule count and derive weather-skip on/off flags.
+
+        The real on/off state of each weather-intelligence skip lives on the
+        schedule objects as ``rain_delay_enabled`` / ``wind_delay_enabled`` /
+        ``freeze_delay_enabled`` / ``saturation_delay_enabled`` (device_info only
+        carries the numeric thresholds). A skip is reported ACTIVE when any
+        currently-enabled schedule has that delay enabled.
+        """
         response = await self.get_schedules(irrigation)
         data = response.get('data', {}) if isinstance(response, dict) else {}
         schedules = data.get('schedules', []) or []
-        # Count schedules that are enabled (treat missing 'enabled' as enabled).
-        irrigation.active_schedules_count = sum(
-            1 for s in schedules if s.get('enabled', True)
-        )
+        # Enabled schedules only (treat missing 'enabled' as enabled).
+        enabled_schedules = [s for s in schedules if s.get('enabled', True)]
+        irrigation.active_schedules_count = len(enabled_schedules)
+
+        def _delay_on(key: str) -> bool:
+            return any(bool(s.get(key)) for s in enabled_schedules)
+
+        irrigation.skip_rain = _delay_on('rain_delay_enabled')
+        irrigation.skip_wind = _delay_on('wind_delay_enabled')
+        irrigation.skip_low_temp = _delay_on('freeze_delay_enabled')
+        irrigation.skip_saturation = _delay_on('saturation_delay_enabled')
