@@ -71,8 +71,20 @@ class Zone:
         self.is_running: bool = False
         self.remaining_time: int = 0  # seconds remaining
 
-        # Last watered timestamp - updated by get_schedule_runs()
-        self.last_watered: str | None = None  # ISO format UTC timestamp when zone last finished watering
+        # Last watered timestamp (ISO-8601 UTC string). Seeded here from the
+        # zone's own event history (`latest_events`, newest-first) so EVERY zone
+        # gets a value; get_schedule_runs() may later refine it for zones that
+        # appear in a recent past schedule. Without this, zones absent from the
+        # recent schedule_runs window reported 'unknown'.
+        self.last_watered: str | None = None
+        _events = dictionary.get('latest_events') or []
+        if _events:
+            _latest = max(_events, key=lambda e: e.get('end_ts', 0) or 0)
+            _ts = _latest.get('end_ts')
+            if isinstance(_ts, (int, float)) and _ts > 0:
+                self.last_watered = datetime.fromtimestamp(
+                    _ts, tz=timezone.utc
+                ).isoformat()
 
         # Estimated soil moisture at end of day (0-1 fraction) from Wyze's
         # smart-schedule model. Present on the /zone response.
