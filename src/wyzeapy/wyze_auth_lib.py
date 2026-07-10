@@ -6,6 +6,7 @@
 import asyncio
 import logging
 import ssl
+import importlib.resources
 import time
 from typing import Dict, Any, Optional
 
@@ -51,32 +52,13 @@ tracking, automatic refresh timing, and secure request methods in WyzeAuthLib.
 # from certifi PLUS this one pinned root, scoped to this library's sessions
 # only (nothing system-wide is modified).
 #
+# The pinned root lives in the file named by _CERT_FILE (packaged next to
+# this module, loaded lazily in get_ssl_context). Keeping it in a file makes
+# it trivial to rotate when the cert changes - no code edit needed.
 # DigiCert Global Root CA - self-signed, expires 2031-11-10.
 # SHA256 fingerprint (publicly documented):
 #   4348A0E9444C78CB265E058D5E8944B4D84F9662BD26DB257F8934A443C70161
-_DIGICERT_GLOBAL_ROOT_CA = """-----BEGIN CERTIFICATE-----
-MIIDrzCCApegAwIBAgIQCDvgVpBCRrGhdWrJWZHHSjANBgkqhkiG9w0BAQUFADBh
-MQswCQYDVQQGEwJVUzEVMBMGA1UEChMMRGlnaUNlcnQgSW5jMRkwFwYDVQQLExB3
-d3cuZGlnaWNlcnQuY29tMSAwHgYDVQQDExdEaWdpQ2VydCBHbG9iYWwgUm9vdCBD
-QTAeFw0wNjExMTAwMDAwMDBaFw0zMTExMTAwMDAwMDBaMGExCzAJBgNVBAYTAlVT
-MRUwEwYDVQQKEwxEaWdpQ2VydCBJbmMxGTAXBgNVBAsTEHd3dy5kaWdpY2VydC5j
-b20xIDAeBgNVBAMTF0RpZ2lDZXJ0IEdsb2JhbCBSb290IENBMIIBIjANBgkqhkiG
-9w0BAQEFAAOCAQ8AMIIBCgKCAQEA4jvhEXLeqKTTo1eqUKKPC3eQyaKl7hLOllsB
-CSDMAZOnTjC3U/dDxGkAV53ijSLdhwZAAIEJzs4bg7/fzTtxRuLWZscFs3YnFo97
-nh6Vfe63SKMI2tavegw5BmV/Sl0fvBf4q77uKNd0f3p4mVmFaG5cIzJLv07A6Fpt
-43C/dxC//AH2hdmoRBBYMql1GNXRor5H4idq9Joz+EkIYIvUX7Q6hL+hqkpMfT7P
-T19sdl6gSzeRntwi5m3OFBqOasv+zbMUZBfHWymeMr/y7vrTC0LUq7dBMtoM1O/4
-gdW7jVg/tRvoSSiicNoxBN33shbyTApOB6jtSj1etX+jkMOvJwIDAQABo2MwYTAO
-BgNVHQ8BAf8EBAMCAYYwDwYDVR0TAQH/BAUwAwEB/zAdBgNVHQ4EFgQUA95QNVbR
-TLtm8KPiGxvDl7I90VUwHwYDVR0jBBgwFoAUA95QNVbRTLtm8KPiGxvDl7I90VUw
-DQYJKoZIhvcNAQEFBQADggEBAMucN6pIExIK+t1EnE9SsPTfrgT1eXkIoyQY/Esr
-hMAtudXH/vTBH1jLuG2cenTnmCmrEbXjcKChzUyImZOMkXDiqw8cvpOp/2PV5Adg
-06O/nVsJ8dWO41P0jmP6P6fbtGbfYmbW0W5BjfIttep3Sp+dWOIrWcBAI+0tKIJF
-PnlUkiaY4IBIqDfv8NZ5YBberOgOzW6sRBc4L0na4UU+Krk2U886UAb3LujEV0ls
-YSEY1QSteDwsOoBrp+uvFRTp2InBuThs4pFsiv9kuXclVzDAGySj4dzp30d8tbQk
-CAUw7C29C79Fv1C5qfPrmAESrciIxpg0X40KPMbp1ZWVbd4=
------END CERTIFICATE-----
-"""
+_CERT_FILE = "digicert_global_root_ca.pem"
 
 _SSL_CONTEXT: Optional[ssl.SSLContext] = None
 
@@ -103,7 +85,13 @@ def get_ssl_context() -> ssl.SSLContext:
     global _SSL_CONTEXT
     if _SSL_CONTEXT is None:
         context = ssl.create_default_context(cafile=certifi.where())
-        context.load_verify_locations(cadata=_DIGICERT_GLOBAL_ROOT_CA)
+        # Add the pinned root (read from its .pem) on top of certifi.
+        cadata = (
+            importlib.resources.files(__package__)
+            .joinpath(_CERT_FILE)
+            .read_text(encoding="ascii")
+        )
+        context.load_verify_locations(cadata=cadata)
         _SSL_CONTEXT = context
     return _SSL_CONTEXT
 
