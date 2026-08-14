@@ -42,3 +42,6 @@ build/
 .DS_Store
 Thumbs.db
 .envrc
+
+# Local Claude settings — per-machine, and upstream deliberately untracked it.
+.claude/settings.local.json
